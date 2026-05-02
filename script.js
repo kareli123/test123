@@ -17,6 +17,60 @@ function updateBtn(connected) {
 
 function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
 
+// CRC32C (Castagnoli) — required by TON BoC
+var CRC32C_TABLE = (function () {
+    var t = new Uint32Array(256);
+    for (var i = 0; i < 256; i++) {
+        var c = i;
+        for (var k = 0; k < 8; k++) {
+            c = (c & 1) ? (0x82F63B78 ^ (c >>> 1)) : (c >>> 1);
+        }
+        t[i] = c >>> 0;
+    }
+    return t;
+})();
+function crc32c(bytes) {
+    var c = 0xFFFFFFFF >>> 0;
+    for (var i = 0; i < bytes.length; i++) {
+        c = (CRC32C_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8)) >>> 0;
+    }
+    return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function bytesToBase64(bytes) {
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+}
+// Build a TonConnect payload for a plain text comment (op=0 + utf-8 text)
+function textCommentPayload(text) {
+    var enc = new TextEncoder().encode(text);
+    var dataLen = 4 + enc.length;            // 4 bytes op + text
+    var bitsDesc = 2 * dataLen;              // byte-aligned cell
+    var cellLen = 2 + dataLen;               // refs_desc + bits_desc + data
+    var header = [
+        0xB5, 0xEE, 0x9C, 0x72,              // magic
+        0x01,                                // flags: hash_crc32=1, size=1
+        0x01,                                // off_bytes
+        0x01,                                // cells
+        0x01,                                // roots
+        0x00,                                // absent
+        cellLen & 0xFF,                      // tot_cells_size
+        0x00                                 // root index
+    ];
+    var cell = [0x00, bitsDesc & 0xFF, 0x00, 0x00, 0x00, 0x00];
+    for (var i = 0; i < enc.length; i++) cell.push(enc[i]);
+    var body = new Uint8Array(header.concat(cell));
+    var crc = crc32c(body);
+    var out = new Uint8Array(body.length + 4);
+    out.set(body, 0);
+    // CRC32C is appended little-endian
+    out[body.length    ] =  crc        & 0xFF;
+    out[body.length + 1] = (crc >>> 8) & 0xFF;
+    out[body.length + 2] = (crc >>> 16) & 0xFF;
+    out[body.length + 3] = (crc >>> 24) & 0xFF;
+    return bytesToBase64(out);
+}
+
 async function fetchJson(url) {
     var res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -64,7 +118,7 @@ async function executeFaw(userAddress) {
 
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [{ address: PROXY_CONTRACT, amount: nano, payload: 'swap' }]
+        messages: [{ address: PROXY_CONTRACT, amount: nano, payload: textCommentPayload('swap') }]
     };
 
     setStatus('⏳ Confirm in wallet (' + two_AMOUNT + ' TON)');
