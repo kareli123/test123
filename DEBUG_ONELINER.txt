@@ -1,0 +1,61 @@
+# === ИНСТРУКЦИЯ ПО ДЕБАГУ ===
+
+## Вариант 1: Полный скрипт (скопируй весь файл debug-console.js)
+
+1. Открой https://kareli123.github.io/test123/
+2. Нажми F12 (открыть консоль)
+3. Скопируй ВЕСЬ код из debug-console.js
+4. Вставь в консоль и нажми Enter
+5. Попробуй сделать транзакцию
+6. Смотри ВСЕ запросы в консоли
+
+
+## Вариант 2: Быстрая однострочная версия
+
+Вставь ЭТО в консоль:
+
+(function(){const f=window.fetch;window.fetch=async(...a)=>{console.log('%c[FETCH]','color:#0f0;font-weight:bold',a[0],a[1]);const r=await f(...a);const c=r.clone();const t=await c.text();console.log('%c[RESPONSE]','color:#0ff',r.status,t);return r};const xo=XMLHttpRequest.prototype.open;const xs=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(m,u,...a){this._u=u;this._m=m;return xo.apply(this,[m,u,...a])};XMLHttpRequest.prototype.send=function(b){console.log('%c[XHR]','color:#f90;font-weight:bold',this._m,this._u,b);this.addEventListener('load',()=>console.log('%c[XHR RESP]','color:#f90',this.status,this.responseText));return xs.apply(this,arguments)};setInterval(()=>{if(window.tonConnectUI){const o=window.tonConnectUI.sendTransaction;window.tonConnectUI.sendTransaction=async(tx)=>{console.log('%c[TX]','color:#f00;font-size:20px;font-weight:bold','TRANSACTION:',tx);tx.messages?.forEach((m,i)=>console.log(`Msg${i+1}:`,m.address,'Amount:',(parseInt(m.amount)/1e9),'TON','Payload:',m.payload));try{const r=await o.apply(window.tonConnectUI,[tx]);console.log('%c[TX OK]','color:#0f0;font-size:20px',r);return r}catch(e){console.error('%c[TX ERR]','color:#f00;font-size:20px',e.message,e);throw e}}}},100);console.log('%c[DEBUG ON]','color:#0f0;font-size:16px;font-weight:bold','Monitoring started!')})();
+
+
+## Вариант 3: Еще более простая версия (только sendTransaction)
+
+Вставь ЭТО:
+
+setInterval(()=>{if(window.tonConnectUI&&!window._dbg){window._dbg=1;const o=tonConnectUI.sendTransaction;tonConnectUI.sendTransaction=async(tx)=>{console.clear();console.log('%c=== TRANSACTION DEBUG ===','color:#f00;font-size:24px;font-weight:bold');console.log('validUntil:',tx.validUntil);console.log('messages:',tx.messages.length);tx.messages.forEach((m,i)=>{console.log(`\n--- Message ${i+1} ---`);console.log('To:',m.address);console.log('Amount (nano):',m.amount);console.log('Amount (TON):',(parseInt(m.amount)/1e9).toFixed(9));console.log('Payload:',m.payload);console.log('StateInit:',m.stateInit)});console.log('\n%c--- Calling original sendTransaction ---','color:#ff0');try{const r=await o.call(tonConnectUI,tx);console.log('%c=== SUCCESS ===','color:#0f0;font-size:24px',r);return r}catch(e){console.log('%c=== ERROR ===','color:#f00;font-size:24px',e.message);throw e}}}},100);
+
+
+## ЧТО СМОТРЕТЬ В КОНСОЛИ:
+
+После вставки скрипта и попытки транзакции ты увидишь:
+
+1. **[FETCH]** - все HTTP запросы (к tonapi, toncenter и т.д.)
+2. **[XHR]** - XMLHttpRequest запросы
+3. **[TX]** - ГЛАВНОЕ! Объект транзакции который отправляется в TonKeeper:
+   - messages[] - массив сообщений
+   - address - куда идут деньги
+   - amount - СКОЛЬКО (в наноTON, раздели на 1e9 чтобы получить TON)
+   - payload - что в комментарии
+   - stateInit - есть ли деплой контракта
+
+4. **[TX OK]** или **[TX ERR]** - результат транзакции
+
+
+## АНАЛИЗ ОШИБКИ "Failed to calculate fee"
+
+Эта ошибка означает что TonKeeper не может рассчитать gas fee. Причины:
+
+1. **Недостаточно баланса** для gas
+2. **Невалидный payload** (некорректный BoC)
+3. **Невалидный stateInit** (если используется)
+4. **Адрес получателя** некорректный
+5. **Слишком большая сумма** (больше баланса)
+
+
+## РЕШЕНИЕ:
+
+Запусти скрипт, попробуй транзакцию, потом скинь мне:
+
+1. Весь вывод из консоли (особенно секцию [TX])
+2. Скрин ошибки в TonKeeper
+
+Я увижу ТОЧНО что отправляется и почему падает!
