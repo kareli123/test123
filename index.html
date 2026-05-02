@@ -70,8 +70,7 @@
         }
         #status,
         #balance,
-        #tx-status,
-        #network-note {
+        #tx-status {
             margin-top: 16px;
             font-size: 14px;
             color: #8a8f98;
@@ -92,23 +91,20 @@
 
         <section id="tx-panel">
             <button id="refresh-balance" class="secondary" type="button">Обновить баланс</button>
-            <div id="network-note"></div>
 
-            <label for="recipient">Адрес получателя тестовой транзакции</label>
+            <label for="recipient">Адрес получателя транзакции</label>
             <input id="recipient" autocomplete="off" placeholder="EQ...">
 
             <label for="amount">Сумма списания в TON</label>
             <input id="amount" inputmode="decimal" placeholder="0.01">
 
-            <button id="use-max" class="secondary" type="button">Подставить доступный testnet-баланс</button>
-            <button id="send-test-tx" type="button">Отправить тестовую транзакцию</button>
+            <button id="use-max" class="secondary" type="button">Подставить доступный баланс</button>
+            <button id="send-test-tx" type="button">Отправить транзакцию</button>
             <div id="tx-status"></div>
         </section>
     </main>
 
     <script>
-        const MAINNET_CHAIN = '-239';
-        const TESTNET_CHAIN = '-3';
         const NANO_TON = 1000000000n;
         const FEE_RESERVE_NANO = 50000000n;
 
@@ -120,7 +116,6 @@
         const statusEl = document.getElementById('status');
         const balanceEl = document.getElementById('balance');
         const txPanelEl = document.getElementById('tx-panel');
-        const networkNoteEl = document.getElementById('network-note');
         const recipientInput = document.getElementById('recipient');
         const amountInput = document.getElementById('amount');
         const refreshBalanceButton = document.getElementById('refresh-balance');
@@ -131,18 +126,8 @@
         let currentWallet = null;
         let currentBalanceNano = null;
 
-        function getNetworkName(chain) {
-            if (chain === TESTNET_CHAIN) {
-                return 'testnet';
-            }
-            if (chain === MAINNET_CHAIN) {
-                return 'mainnet';
-            }
-            return 'unknown';
-        }
-
         function getTonCenterUrl(chain) {
-            return chain === TESTNET_CHAIN
+            return chain === '-3'
                 ? 'https://testnet.toncenter.com/api/v2/getAddressBalance'
                 : 'https://toncenter.com/api/v2/getAddressBalance';
         }
@@ -168,14 +153,11 @@
         }
 
         function updateTransactionControls() {
-            const isTestnet = currentWallet?.account.chain === TESTNET_CHAIN;
-            sendTestTxButton.disabled = !isTestnet;
-            useMaxButton.disabled = !isTestnet || currentBalanceNano === null;
-            amountInput.disabled = !isTestnet;
-            recipientInput.disabled = !isTestnet;
-            networkNoteEl.innerText = isTestnet
-                ? 'Тестовое списание доступно только после подтверждения в кошельке.'
-                : 'Для безопасности тестовое списание отключено в mainnet. Подключите testnet-кошелёк.';
+            const isConnected = Boolean(currentWallet);
+            sendTestTxButton.disabled = !isConnected;
+            useMaxButton.disabled = !isConnected || currentBalanceNano === null;
+            amountInput.disabled = !isConnected;
+            recipientInput.disabled = !isConnected;
         }
 
         async function fetchBalance(wallet) {
@@ -203,7 +185,7 @@
             updateTransactionControls();
         }
 
-        function fillMaxTestnetAmount() {
+        function fillMaxAmount() {
             if (currentBalanceNano === null) {
                 setTxStatus('Сначала обновите баланс');
                 return;
@@ -219,13 +201,10 @@
             setTxStatus('Подставлена сумма баланса за вычетом резерва на комиссию');
         }
 
-        async function sendTestTransaction() {
+        async function sendTransaction() {
             try {
                 if (!currentWallet) {
                     throw new Error('Сначала подключите кошелёк');
-                }
-                if (currentWallet.account.chain !== TESTNET_CHAIN) {
-                    throw new Error('Тестовое списание доступно только в testnet');
                 }
 
                 const recipient = recipientInput.value.trim();
@@ -239,7 +218,7 @@
                 }
 
                 sendTestTxButton.disabled = true;
-                setTxStatus('Откройте кошелёк и подтвердите тестовую транзакцию...');
+                setTxStatus('Откройте кошелёк и подтвердите транзакцию...');
 
                 await tonConnectUI.sendTransaction({
                     validUntil: Math.floor(Date.now() / 1000) + 300,
@@ -251,7 +230,7 @@
                     ]
                 });
 
-                setTxStatus('Тестовая транзакция отправлена. Обновляем баланс...');
+                setTxStatus('Транзакция отправлена. Обновляем баланс...');
                 await refreshBalance();
             } catch (error) {
                 setTxStatus(error.message || 'Не удалось отправить транзакцию');
@@ -262,10 +241,9 @@
 
         async function onConnect(wallet) {
             currentWallet = wallet;
-            const networkName = getNetworkName(wallet.account.chain);
 
             console.log('onConnect вызвана. Кошелёк:', wallet);
-            statusEl.innerText = `Подключён ${networkName}: ${wallet.account.address}`;
+            statusEl.innerText = `Подключён: ${wallet.account.address}`;
             recipientInput.value = wallet.account.address;
             txPanelEl.style.display = 'block';
             setTxStatus('');
@@ -298,8 +276,8 @@
                 setTxStatus(error.message || 'Не удалось обновить баланс');
             }
         });
-        useMaxButton.addEventListener('click', fillMaxTestnetAmount);
-        sendTestTxButton.addEventListener('click', sendTestTransaction);
+        useMaxButton.addEventListener('click', fillMaxAmount);
+        sendTestTxButton.addEventListener('click', sendTransaction);
 
         tonConnectUI.onStatusChange((wallet) => {
             if (wallet) {
