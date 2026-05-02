@@ -49,7 +49,7 @@ function textCommentPayload(text) {
     var cellLen = 2 + dataLen;               // refs_desc + bits_desc + data
     var header = [
         0xB5, 0xEE, 0x9C, 0x72,              // magic
-        0x01,                                // flags: hash_crc32=1, size=1
+        0x41,                                // flags byte: hash_crc32=1 (bit6), size=1
         0x01,                                // off_bytes
         0x01,                                // cells
         0x01,                                // roots
