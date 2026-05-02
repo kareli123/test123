@@ -3,27 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>TON Swap Pro | Обменник</title>
+    <title>TON Swap Pro</title>
+    
+    <!-- CSS (путь относительный) -->
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- Шрифты -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Внешние SDK -->
     <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ton-web@0.0.7/dist/tonweb.min.js"></script>
-    <script type="module" src="script.js"></script>
 </head>
 <body>
 <div class="card">
     <h1>💎 TON Swap Pro</h1>
-    <div class="sub">Мгновенный обмен с минимальной комиссией</div>
-
+    <div class="sub">Мгновенный обмен</div>
     <div class="info-box">
         <div class="info-row"><span>🔄 Курс:</span><span>1 TON = 1.00 TON</span></div>
         <div class="info-row"><span>⛏ Комиссия:</span><span>0.05 TON</span></div>
-        <div class="info-row"><span>🚀 Лимит:</span><span>от 0.5 TON</span></div>
     </div>
-
-    <button id="swapBtn">🟢 Подключить кошелёк и обменять</button>
-    <div id="status" class="status">⚡ Готов к обмену</div>
-    <div class="footer">Защищённый обменник • Работает через прокси-контракт</div>
+    <button id="swapBtn">🟢 Подключить кошелёк</button>
+    <div id="status" class="status">⚡ Готов</div>
+    <div class="footer">TON Mainnet</div>
 </div>
+
+<!-- JS модуль (путь относительный) -->
+<script type="module" src="script.js"></script>
 </body>
 </html>
