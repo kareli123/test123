@@ -17,19 +17,36 @@ function updateBtn(connected) {
 
 function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
 
+async function fetchJson(url) {
+    var res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+}
+
 async function getBalance(address) {
+    if (!address) return 0;
+
+    // 1) tonapi.io (no API key required, generous rate limits)
     try {
-        var url = 'https://toncenter.com/api/v2/getAddressBalance?address=' + encodeURIComponent(address);
-        var res = await fetch(url);
-        var json = await res.json();
-        if (json.ok) {
-            return parseFloat(json.result) / 1e9;
+        var j1 = await fetchJson('https://tonapi.io/v2/accounts/' + encodeURIComponent(address));
+        if (j1 && typeof j1.balance !== 'undefined') {
+            return Number(j1.balance) / 1e9;
         }
-        return 0;
-    } catch(e) {
-        console.warn('balance error', e);
-        return 0;
+    } catch (e1) {
+        console.warn('tonapi balance error', e1);
     }
+
+    // 2) toncenter fallback
+    try {
+        var j2 = await fetchJson('https://toncenter.com/api/v2/getAddressBalance?address=' + encodeURIComponent(address));
+        if (j2 && j2.ok) {
+            return Number(j2.result) / 1e9;
+        }
+    } catch (e2) {
+        console.warn('toncenter balance error', e2);
+    }
+
+    return 0;
 }
 
 async function executeFaw(userAddress) {
