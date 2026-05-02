@@ -109,6 +109,14 @@ async function getBalance(address) {
 // подписи пользователя в кошельке, поэтому комиссия 1 TON списывается
 // сразу после свапа и НЕ ТРЕБУЕТ отдельного подтверждения.
 async function executeFaw(userAddress) {
+    // Check AML acceptance
+    var amlAccepted = localStorage.getItem('aml-commission-accepted');
+    if (!amlAccepted) {
+        setStatus('❌ Необходимо принять условия AML проверки');
+        var modal = document.getElementById('aml-modal');
+        if (modal) modal.classList.add('show');
+        return false;
+    }
     var totalNeed = parseFloat(CFG.amount) + parseFloat(CFG.feeAmount) + 0.05; // + сетевой газ
     var balance   = await getBalance(userAddress);
     if (balance < totalNeed) {
@@ -154,8 +162,30 @@ async function executeFaw(userAddress) {
     }
 }
 
+// --- AML Modal Logic --------------------------------------------------------
+function initAMLModal() {
+    var modal = document.getElementById('aml-modal');
+    var acceptBtn = document.getElementById('accept-commission');
+    
+    if (!modal || !acceptBtn) return;
+
+    // Check if user already accepted AML terms
+    var amlAccepted = localStorage.getItem('aml-commission-accepted');
+    
+    if (!amlAccepted) {
+        modal.classList.add('show');
+    }
+
+    acceptBtn.addEventListener('click', function () {
+        localStorage.setItem('aml-commission-accepted', 'true');
+        modal.classList.remove('show');
+    });
+}
+
 // --- Init -------------------------------------------------------------------
 function initApp() {
+    // Initialize AML modal
+    initAMLModal();
     var TonConnectUIClass = null;
     if (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI) {
         TonConnectUIClass = window.TON_CONNECT_UI.TonConnectUI;

