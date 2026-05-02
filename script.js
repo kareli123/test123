@@ -5,7 +5,7 @@ let tonConnectUI = null;
 let isProcessing = false;
 
 // Глобальные SDK (загружены через <script>)
-const TonConnectUI = window.TonConnectUI || window.tonconnectui;
+const TonConnectUI = window.TON_CONNECT_UI ? window.TON_CONNECT_UI.TonConnectUI : window.TonConnectUI;
 const TonWebLib = window.TonWeb || window.tonweb;
 
 function setStatus(elementId, text, isLoading = false) {
