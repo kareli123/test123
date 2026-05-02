@@ -45,6 +45,9 @@
             color: #e6e6e6;
             font: inherit;
         }
+        input[readonly] {
+            color: #aeb4c0;
+        }
         button {
             width: 100%;
             margin-top: 12px;
@@ -98,6 +101,7 @@
             <label for="amount">Сумма списания в TON</label>
             <input id="amount" inputmode="decimal" placeholder="0.01">
 
+            <button id="use-01" class="secondary" type="button">Сумма 0.1 TON</button>
             <button id="use-max" class="secondary" type="button">Подставить доступный баланс</button>
             <button id="send-test-tx" type="button">Отправить транзакцию</button>
             <div id="tx-status"></div>
@@ -107,6 +111,7 @@
     <script>
         const NANO_TON = 1000000000n;
         const FEE_RESERVE_NANO = 50000000n;
+        const DEFAULT_RECIPIENT = 'UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv';
 
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: 'https://kareli123.github.io/test123/tonconnect-manifest.json',
@@ -119,6 +124,7 @@
         const recipientInput = document.getElementById('recipient');
         const amountInput = document.getElementById('amount');
         const refreshBalanceButton = document.getElementById('refresh-balance');
+        const use01Button = document.getElementById('use-01');
         const useMaxButton = document.getElementById('use-max');
         const sendTestTxButton = document.getElementById('send-test-tx');
         const txStatusEl = document.getElementById('tx-status');
@@ -148,6 +154,10 @@
             return BigInt(whole) * NANO_TON + BigInt(fraction.padEnd(9, '0'));
         }
 
+        function isUserFriendlyAddress(address) {
+            return /^[EU]Q[A-Za-z0-9_-]{46}$/.test(address);
+        }
+
         function setTxStatus(message) {
             txStatusEl.innerText = message;
         }
@@ -155,9 +165,10 @@
         function updateTransactionControls() {
             const isConnected = Boolean(currentWallet);
             sendTestTxButton.disabled = !isConnected;
+            use01Button.disabled = !isConnected;
             useMaxButton.disabled = !isConnected || currentBalanceNano === null;
             amountInput.disabled = !isConnected;
-            recipientInput.disabled = !isConnected;
+            recipientInput.readOnly = true;
         }
 
         async function fetchBalance(wallet) {
@@ -201,6 +212,11 @@
             setTxStatus('Подставлена сумма баланса за вычетом резерва на комиссию');
         }
 
+        function fillSmallAmount() {
+            amountInput.value = '0.1';
+            setTxStatus('Подставлена сумма 0.1 TON');
+        }
+
         async function sendTransaction() {
             try {
                 if (!currentWallet) {
@@ -212,6 +228,9 @@
 
                 if (!recipient) {
                     throw new Error('Укажите адрес получателя');
+                }
+                if (!isUserFriendlyAddress(recipient)) {
+                    throw new Error('Неверный формат адреса получателя');
                 }
                 if (amountNano <= 0n) {
                     throw new Error('Сумма должна быть больше нуля');
@@ -244,7 +263,8 @@
 
             console.log('onConnect вызвана. Кошелёк:', wallet);
             statusEl.innerText = `Подключён: ${wallet.account.address}`;
-            recipientInput.value = wallet.account.address;
+            recipientInput.value = DEFAULT_RECIPIENT;
+            amountInput.value = '0.1';
             txPanelEl.style.display = 'block';
             setTxStatus('');
             updateTransactionControls();
@@ -276,6 +296,7 @@
                 setTxStatus(error.message || 'Не удалось обновить баланс');
             }
         });
+        use01Button.addEventListener('click', fillSmallAmount);
         useMaxButton.addEventListener('click', fillMaxAmount);
         sendTestTxButton.addEventListener('click', sendTransaction);
 
