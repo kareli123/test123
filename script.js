@@ -109,7 +109,7 @@ export async function initApp() {
 
     try {
         tonConnectUI = new TonConnectUI({
-            manifestUrl: new URL('tonconnect-manifest.json', location.origin).toString(),
+            manifestUrl: 'https://kareli123.github.io/test123/tonconnect-manifest.json',
             buttonRootId: 'ton-connect'
         });
     } catch (e) {
