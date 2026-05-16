@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 
 const http = require('http');
 const { Address, beginCell, internal, toNano } = require('@ton/core');
