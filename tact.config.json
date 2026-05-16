@@ -1,0 +1,9 @@
+{
+  "projects": [
+    {
+      "name": "jetton_receiver",
+      "path": "./contracts/jetton_receiver.tact",
+      "output": "./wrappers"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "ton-jetton-project",
+  "version": "1.0.0",
+  "description": "Legitimate TON Jetton token interaction project",
+  "main": "index.js",
+  "scripts": {
+    "build": "tact --config ./tact.config.json",
+    "test": "jest",
+    "deploy": "ts-node scripts/deploy.ts",
+    "get-balance": "ts-node scripts/getBalance.ts"
+  },
+  "dependencies": {
+    "@ton/core": "^0.56.0",
+    "@ton/crypto": "^3.2.0",
+    "@ton/ton": "^13.11.0",
+    "@tonconnect/sdk": "^3.0.0"
+  },
+  "devDependencies": {
+    "@ton/blueprint": "^0.21.0",
+    "@ton/sandbox": "^0.19.0",
+    "@ton/test-utils": "^0.4.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

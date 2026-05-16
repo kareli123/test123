@@ -1,22 +1,22 @@
-// config.js - Jettoken Airdrop Configuration
-
-// Your Jetton Master Contract address
-var JETTON_MASTER = "EQB0qpljZl3xD0pbWPM3PCEn6bQfDe6Xx7a7W4qtBs45axmj";
-
-// Token name displayed in UI
-var TOKEN_NAME = "Jettoken";
-
-// Token symbol
-var TOKEN_SYMBOL = "JTT";
-
-// Amount of tokens per claim (displayed in UI)
-var CLAIM_AMOUNT = 100;
-
-// Backend URL (change to your server URL in production)
-var BACKEND_URL = "https://jettoken-airdrop-backend-production.up.railway.app";
-
-// TON Connect manifest URL
-var MANIFEST_URL = "https://kareli123.github.io/test123/tonconnect-manifest.json";
-
-// Network
-var NETWORK = "mainnet";
+// Legitimate TON Jetton Project Configuration
+const CFG = {
+    // Network
+    network: 'mainnet', // or 'testnet'
+    
+    // Contract addresses
+    jettonReceiver: '', // Fill after deployment
+    
+    // USDT Jetton Master (mainnet)
+    usdtMaster: 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1ifCcfL6hPQBfta10',
+    
+    // Jetton decimals
+    usdtDecimals: 6,
+    tonDecimals: 9,
+    
+    // Gas settings
+    forwardGas: '50000000', // 0.05 TON
+    minTonForStorage: '100000000', // 0.1 TON
+    
+    // Exchange rate (for demo purposes - use oracle in production)
+    tonToUsdtRate: 5.0, // 1 TON = 5 USDT (example)
+};
