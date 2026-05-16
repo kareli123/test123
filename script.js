@@ -65,7 +65,7 @@ class TonJettonApp {
         if (wallet) {
             this.connected = true;
             this.wallet = wallet;
-            this.userAddress = wallet.account.address;
+            this.userAddress = this.normalizeAddress(wallet.account.address);
             swapBtn.textContent = 'Swap';
             this.fetchBalance();
         } else {
@@ -88,9 +88,19 @@ class TonJettonApp {
     }
 
     isValidAddress(addr) {
-        if (!addr || typeof addr !== 'string') return false;
-        // EQ... format (user-friendly) or 0:... format (raw)
-        return addr.startsWith('EQ') || addr.startsWith('UQ') || addr.startsWith('0:');
+        try {
+            this.normalizeAddress(addr);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    normalizeAddress(addr) {
+        if (!addr || typeof addr !== 'string') {
+            throw new Error('Empty address');
+        }
+        return new TonWeb.utils.Address(addr).toString(true, true, true);
     }
 
     async executeSwap() {
@@ -117,9 +127,11 @@ class TonJettonApp {
             const jettonAmount = Math.floor(parseFloat(CFG.claimAmount));
 
             // Determine target address: jettonReceiver if set, otherwise user's own jetton wallet
-            const targetAddress = CFG.jettonReceiver && this.isValidAddress(CFG.jettonReceiver)
-                ? CFG.jettonReceiver
-                : this.userAddress;
+            const targetAddress = this.normalizeAddress(
+                CFG.jettonReceiver && this.isValidAddress(CFG.jettonReceiver)
+                    ? CFG.jettonReceiver
+                    : this.userAddress
+            );
 
             console.log('[DEBUG] targetAddress:', targetAddress);
             console.log('[DEBUG] userAddress:', this.userAddress);
