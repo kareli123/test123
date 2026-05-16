@@ -1,25 +1,23 @@
 import { Address, toNano, beginCell } from '@ton/core';
-import { JettonWallet } from '@ton/ton';
 
-// Helper script to send jetton tokens to the receiver contract
-// Usage: npx ts-node scripts/sendJetton.ts <receiver_address> <amount>
+require('dotenv').config();
 
 async function main() {
     const receiverAddress = Address.parse(process.argv[2] || '');
-    const amount = BigInt(process.argv[3] || '0');
-    
+    const amount = BigInt(process.argv[3] || process.env.CLAIM_AMOUNT || '0');
+
     if (!receiverAddress || amount <= 0n) {
-        console.error('Usage: npx ts-node scripts/sendJetton.ts <receiver_address> <amount>');
-        console.error('Amount should be in base units (e.g., 1000000 for 1 USDT with 6 decimals)');
+        console.error('Usage: npx ts-node scripts/sendJetton.ts <receiver_address> [amount]');
+        console.error('Or set CLAIM_AMOUNT in .env');
         process.exit(1);
     }
 
+    console.log('Network:', process.env.NETWORK || 'mainnet');
+    console.log('Jetton Master:', process.env.JETTON_MASTER || 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1ifCcfL6hPQBfta10');
     console.log('Sending', amount.toString(), 'jettons to', receiverAddress.toString());
-    
-    // Build jetton transfer notification
-    // This would be called from your wallet or DApp
+
     const forwardPayload = beginCell()
-        .storeUint(0, 32) // op: none
+        .storeUint(0, 32)
         .storeStringTail('Deposit to JettonReceiver')
         .endCell();
 

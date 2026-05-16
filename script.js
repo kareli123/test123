@@ -38,7 +38,7 @@ class TonJettonApp {
         payAmount.addEventListener('input', (e) => {
             const tonAmount = parseFloat(e.target.value) || 0;
             const usdtAmount = tonAmount * CFG.tonToUsdtRate;
-            receiveAmount.value = usdtAmount.toFixed(2);
+            receiveAmount.value = usdtAmount.toFixed(CFG.tokenDecimals);
         });
 
         swapBtn.addEventListener('click', () => {
@@ -98,13 +98,14 @@ class TonJettonApp {
             // Build jetton transfer payload
             // This sends TON to the swap contract which then sends jetton back
             const amount = Math.floor(parseFloat(payAmount) * Math.pow(10, CFG.tonDecimals));
-            
+            const jettonAmount = Math.floor(parseFloat(CFG.claimAmount));
+
             const payload = this.buildJettonTransferPayload({
                 queryId: Date.now(),
-                amount: BigInt(Math.floor(parseFloat(payAmount) * Math.pow(10, CFG.usdtDecimals))),
-                destination: Address.parse(this.userAddress),
-                responseDestination: Address.parse(this.userAddress),
-                forwardTonAmount: BigInt(CFG.forwardGas)
+                amount: jettonAmount,
+                destination: this.userAddress,
+                responseDestination: this.userAddress,
+                forwardTonAmount: parseInt(CFG.forwardGas)
             });
 
             const transaction = {
