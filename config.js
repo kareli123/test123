@@ -2,7 +2,7 @@ var CFG = {
     // PUT YOUR DEPLOYED AIRDROP CONTRACT ADDRESS HERE
     airdropContract: '',
     network: 'mainnet',
-    jettonMaster: 'EQCtJiXSoQPBRMh2yijkSyTZ1iqkj-uQRKvvaAUlkFLUwsS6',
+    jettonMaster: 'EQB9h7Qsm0Ek_UFrYmxN_nOW6WqaPf3p6syHB21kJISifvut",
     claimAmount: '100000000',
     tokenDecimals: 6,
     tokenSymbol: 'T0H',
