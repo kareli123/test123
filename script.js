@@ -1,11 +1,12 @@
 if (typeof CFG === 'undefined') {
     var CFG = {
-        backendUrl: 'https://jettoken-airdrop-backend-production.up.railway.app',
+        airdropContract: '',
         network: 'mainnet',
         jettonMaster: 'EQCtJiXSoQPBRMh2yijkSyTZ1iqkj-uQRKvvaAUlkFLUwsS6',
-        claimAmount: '1000000',
+        claimAmount: '100000000',
         tokenDecimals: 6,
-        tokenSymbol: 'T0H'
+        tokenSymbol: 'T0H',
+        claimTonAmount: '150000000',
     };
 }
 
@@ -31,7 +32,7 @@ class TonAirdropApp {
         });
 
         this.initUI();
-        this.loadBackendConfig();
+        this.renderConfig();
     }
 
     initUI() {
@@ -43,8 +44,6 @@ class TonAirdropApp {
             }
             this.claimAirdrop();
         });
-
-        this.renderConfig();
     }
 
     handleWalletChange(wallet) {
@@ -53,9 +52,11 @@ class TonAirdropApp {
         if (wallet) {
             this.connected = true;
             this.wallet = wallet;
-            this.userAddress = this.normalizeAddress(wallet.account.address);
+            this.userAddress = wallet.account.address;
             claimBtn.textContent = 'Claim Airdrop';
-            document.getElementById('user-address').textContent = this.shortenAddress(this.userAddress);
+            document.getElementById('user-address').textContent = this.shortenAddress(
+                new TonWeb.utils.Address(this.userAddress).toString(true, true, true)
+            );
         } else {
             this.connected = false;
             this.wallet = null;
@@ -65,48 +66,38 @@ class TonAirdropApp {
         }
     }
 
-    async loadBackendConfig() {
-        try {
-            const res = await fetch(`${CFG.backendUrl}/config`);
-            if (!res.ok) return;
-
-            const data = await res.json();
-            if (!data.ok) return;
-
-            CFG.network = data.network || CFG.network;
-            CFG.jettonMaster = data.jettonMaster || CFG.jettonMaster;
-            CFG.claimAmount = data.claimAmount || CFG.claimAmount;
-            CFG.tokenDecimals = Number(data.tokenDecimals || CFG.tokenDecimals);
-            CFG.tokenSymbol = data.tokenSymbol || CFG.tokenSymbol;
-            this.renderConfig();
-        } catch (e) {
-            console.warn('Backend config is unavailable:', e.message);
-        }
-    }
-
     renderConfig() {
         const amount = this.formatTokenAmount(CFG.claimAmount, CFG.tokenDecimals);
         const claimAmountEl = document.getElementById('claim-amount');
         const tokenMasterEl = document.getElementById('token-master');
         const networkEl = document.getElementById('network');
+        const gasCostEl = document.getElementById('gas-cost');
 
         if (claimAmountEl) claimAmountEl.textContent = `${amount} ${CFG.tokenSymbol}`;
         if (tokenMasterEl) tokenMasterEl.textContent = this.shortenAddress(CFG.jettonMaster);
         if (networkEl) networkEl.textContent = CFG.network;
+        if (gasCostEl) gasCostEl.textContent = `${(Number(CFG.claimTonAmount) / 1e9).toFixed(2)} TON`;
     }
 
-    normalizeAddress(addr) {
-        if (!addr || typeof addr !== 'string') {
-            throw new Error('Empty address');
-        }
-        return new TonWeb.utils.Address(addr).toString(true, true, true);
+    buildClaimPayload() {
+        // op::claim = 1 (32 bits) + query_id = 0 (64 bits)
+        var cell = new TonWeb.boc.Cell();
+        cell.bits.writeUint(1, 32);  // op::claim
+        cell.bits.writeUint(0, 64);  // query_id
+        return cell;
     }
 
     async claimAirdrop() {
-        const status = document.getElementById('status');
-        const claimBtn = document.getElementById('claimBtn');
+        var status = document.getElementById('status');
+        var claimBtn = document.getElementById('claimBtn');
 
         if (this.claimInProgress) return;
+
+        if (!CFG.airdropContract) {
+            status.textContent = 'Airdrop contract not configured';
+            status.className = 'status-msg error';
+            return;
+        }
 
         if (!this.userAddress) {
             status.textContent = 'Connect wallet first';
@@ -116,27 +107,36 @@ class TonAirdropApp {
 
         this.claimInProgress = true;
         claimBtn.disabled = true;
-        status.textContent = 'Submitting claim...';
+        status.textContent = 'Sending claim transaction...';
         status.className = 'status-msg';
 
         try {
-            const res = await fetch(`${CFG.backendUrl}/api/claim`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: this.userAddress })
-            });
-            const data = await res.json();
+            var payloadCell = this.buildClaimPayload();
+            var boc = await payloadCell.toBoc();
+            var payloadBase64 = TonWeb.utils.bytesToBase64(new Uint8Array(boc));
 
-            if (!res.ok || !data.ok) {
-                throw new Error(data.error || 'Claim failed');
-            }
+            var transaction = {
+                validUntil: Math.floor(Date.now() / 1000) + 600,
+                messages: [{
+                    address: CFG.airdropContract,
+                    amount: CFG.claimTonAmount,
+                    payload: payloadBase64
+                }]
+            };
 
-            status.textContent = `Airdrop sent: ${this.formatTokenAmount(data.claim.amount, data.claim.tokenDecimals)} ${data.claim.tokenSymbol || CFG.tokenSymbol}`;
+            await this.tonConnectUI.sendTransaction(transaction);
+
+            var tokenAmount = this.formatTokenAmount(CFG.claimAmount, CFG.tokenDecimals);
+            status.textContent = 'Claim sent! You will receive ' + tokenAmount + ' ' + CFG.tokenSymbol + ' shortly.';
             status.className = 'status-msg success';
-            claimBtn.textContent = 'Claim Submitted';
+            claimBtn.textContent = 'Claim Sent';
         } catch (e) {
             console.error('Claim error:', e);
-            status.textContent = 'Claim failed: ' + e.message;
+            if (e.message && e.message.includes('Cancelled')) {
+                status.textContent = 'Transaction cancelled';
+            } else {
+                status.textContent = 'Claim failed: ' + (e.message || 'Unknown error');
+            }
             status.className = 'status-msg error';
             claimBtn.disabled = false;
         } finally {
@@ -145,15 +145,15 @@ class TonAirdropApp {
     }
 
     formatTokenAmount(amount, decimals) {
-        const value = BigInt(String(amount || '0'));
-        const base = 10n ** BigInt(decimals || 0);
-        const whole = value / base;
-        const fraction = value % base;
+        var value = BigInt(String(amount || '0'));
+        var base = 10n ** BigInt(decimals || 0);
+        var whole = value / base;
+        var fraction = value % base;
 
         if (fraction === 0n) return whole.toString();
 
-        const fractionText = fraction.toString().padStart(Number(decimals), '0').replace(/0+$/, '');
-        return `${whole}.${fractionText}`;
+        var fractionText = fraction.toString().padStart(Number(decimals), '0').replace(/0+$/, '');
+        return whole + '.' + fractionText;
     }
 
     shortenAddress(addr) {
@@ -162,6 +162,6 @@ class TonAirdropApp {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
     window.app = new TonAirdropApp();
 });

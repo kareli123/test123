@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>TON Jetton Airdrop</title>
 
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=20">
     <link rel="tonconnect-manifest" href="tonconnect-manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
@@ -36,7 +36,7 @@
             <div class="airdrop-hero">
                 <div class="airdrop-icon">T0H</div>
                 <h1 id="claim-amount">Loading...</h1>
-                <p>Connect your TON wallet and claim tokens from the airdrop backend.</p>
+                <p>Connect your TON wallet and claim tokens directly from the smart contract.</p>
             </div>
 
             <div class="swap-details">
@@ -53,8 +53,8 @@
                     <span id="token-master">Loading...</span>
                 </div>
                 <div class="detail-row">
-                    <span>User payment</span>
-                    <span>0 TON</span>
+                    <span>Gas cost</span>
+                    <span id="gas-cost">0.15 TON</span>
                 </div>
             </div>
 
@@ -64,16 +64,17 @@
 
         <div class="info-card">
             <h3>How it works</h3>
-            <p>The backend signs a Jetton transfer from the airdrop wallet stored in the server environment variable <code>MNEMONIC</code>.</p>
+            <p>This airdrop runs entirely on a TON smart contract. No backend server is involved.</p>
             <ul>
-                <li>No seed phrase is exposed to the browser</li>
-                <li>No user TON payment is requested</li>
-                <li>Each address can be limited to one claim on the backend</li>
+                <li>The contract holds T0H tokens on its jetton wallet</li>
+                <li>You send a small gas fee (~0.15 TON) to claim</li>
+                <li>The contract sends 100 T0H directly to your wallet</li>
+                <li>Excess gas is returned to you automatically</li>
             </ul>
         </div>
     </main>
 
-    <script src="config.js?v=13"></script>
-    <script src="script.js?v=13"></script>
+    <script src="config.js?v=20"></script>
+    <script src="script.js?v=20"></script>
 </body>
 </html>
