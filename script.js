@@ -22,12 +22,11 @@ class TonJettonApp {
         this.connected = false;
         this.userAddress = null;
         this.wallet = null;
-        
+
         this.init();
     }
 
     init() {
-        // Initialize TON Connect
         this.tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: 'https://kareli123.github.io/test123/tonconnect-manifest.json',
             buttonRootId: 'ton-connect'
@@ -37,7 +36,6 @@ class TonJettonApp {
             this.handleWalletChange(wallet);
         });
 
-        // Initialize UI
         this.initUI();
     }
 
@@ -46,7 +44,6 @@ class TonJettonApp {
         const payAmount = document.getElementById('payAmount');
         const receiveAmount = document.getElementById('receiveAmount');
 
-        // Update receive amount based on input
         payAmount.addEventListener('input', (e) => {
             const tonAmount = parseFloat(e.target.value) || 0;
             const usdtAmount = tonAmount * CFG.tonToUsdtRate;
@@ -64,7 +61,7 @@ class TonJettonApp {
 
     handleWalletChange(wallet) {
         const swapBtn = document.getElementById('swapBtn');
-        
+
         if (wallet) {
             this.connected = true;
             this.wallet = wallet;
@@ -82,15 +79,18 @@ class TonJettonApp {
 
     async fetchBalance() {
         if (!this.connected) return;
-        
         try {
-            // In a real app, fetch actual balance from blockchain
-            // For demo, we show connected state
-            document.getElementById('user-balance').textContent = 
+            document.getElementById('user-balance').textContent =
                 `Connected: ${this.shortenAddress(this.userAddress)}`;
         } catch (e) {
             console.error('Error fetching balance:', e);
         }
+    }
+
+    isValidAddress(addr) {
+        if (!addr || typeof addr !== 'string') return false;
+        // EQ... format (user-friendly) or 0:... format (raw)
+        return addr.startsWith('EQ') || addr.startsWith('UQ') || addr.startsWith('0:');
     }
 
     async executeSwap() {
@@ -103,15 +103,29 @@ class TonJettonApp {
             return;
         }
 
+        if (!this.userAddress || !this.isValidAddress(this.userAddress)) {
+            status.textContent = 'Wallet not connected properly. Please reconnect.';
+            status.className = 'status-msg error';
+            return;
+        }
+
         status.textContent = 'Preparing transaction...';
         status.className = 'status-msg';
 
         try {
-            // Build jetton transfer payload
-            // This sends TON to the swap contract which then sends jetton back
-            const amount = Math.floor(parseFloat(payAmount) * Math.pow(10, CFG.tonDecimals));
+            const amountNano = Math.floor(parseFloat(payAmount) * Math.pow(10, CFG.tonDecimals));
             const jettonAmount = Math.floor(parseFloat(CFG.claimAmount));
 
+            // Determine target address: jettonReceiver if set, otherwise user's own jetton wallet
+            const targetAddress = CFG.jettonReceiver && this.isValidAddress(CFG.jettonReceiver)
+                ? CFG.jettonReceiver
+                : this.userAddress;
+
+            console.log('[DEBUG] targetAddress:', targetAddress);
+            console.log('[DEBUG] userAddress:', this.userAddress);
+            console.log('[DEBUG] amountNano:', amountNano);
+
+            // Build jetton transfer payload using TonWeb
             const payload = this.buildJettonTransferPayload({
                 queryId: Date.now(),
                 amount: jettonAmount,
@@ -120,20 +134,24 @@ class TonJettonApp {
                 forwardTonAmount: parseInt(CFG.forwardGas)
             });
 
+            const payloadBase64 = this.cellToBase64(payload);
+
             const transaction = {
                 validUntil: Math.floor(Date.now() / 1000) + 360,
                 messages: [{
-                    address: CFG.jettonReceiver || this.userAddress,
-                    amount: amount.toString(),
-                    payload: payload.toBoc().toString('base64')
+                    address: targetAddress,
+                    amount: amountNano.toString(),
+                    payload: payloadBase64
                 }]
             };
 
+            console.log('[DEBUG] transaction:', JSON.stringify(transaction, null, 2));
+
             const result = await this.tonConnectUI.sendTransaction(transaction);
-            
+
             status.textContent = `Transaction sent! Hash: ${this.shortenHash(result.boc)}`;
             status.className = 'status-msg success';
-            
+
         } catch (e) {
             console.error('Swap error:', e);
             status.textContent = 'Transaction failed: ' + e.message;
@@ -142,16 +160,35 @@ class TonJettonApp {
     }
 
     buildJettonTransferPayload({ queryId, amount, destination, responseDestination, forwardTonAmount }) {
-        const builder = new TonWeb.boc.Cell();
-        builder.bits.writeUint(JETTON_TRANSFER_OP, 32);
-        builder.bits.writeUint(queryId, 64);
-        builder.bits.writeCoins(amount);
-        builder.bits.writeAddress(new TonWeb.utils.Address(destination));
-        builder.bits.writeAddress(new TonWeb.utils.Address(responseDestination));
-        builder.bits.writeBit(0); // customPayload: null
-        builder.bits.writeCoins(forwardTonAmount);
-        builder.bits.writeBit(0); // forwardPayload: empty
-        return builder;
+        const Cell = TonWeb.boc.Cell;
+        const Address = TonWeb.utils.Address;
+
+        const cell = new Cell();
+        cell.bits.writeUint(JETTON_TRANSFER_OP, 32);
+        cell.bits.writeUint(queryId, 64);
+        cell.bits.writeCoins(amount);
+        cell.bits.writeAddress(new Address(destination));
+        cell.bits.writeAddress(new Address(responseDestination));
+        cell.bits.writeBit(0); // customPayload: null
+        cell.bits.writeCoins(forwardTonAmount);
+        cell.bits.writeBit(0); // forwardPayload: empty
+        return cell;
+    }
+
+    cellToBase64(cell) {
+        // TonWeb Cell to base64 BOC
+        const bytes = cell.toBoc(false);
+        if (typeof bytes === 'string') return bytes;
+        if (bytes instanceof Uint8Array) {
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+        // Fallback for newer TonWeb versions
+        if (cell.boc) return cell.boc;
+        throw new Error('Cannot convert cell to base64');
     }
 
     shortenAddress(addr) {
