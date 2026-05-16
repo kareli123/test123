@@ -1,20 +1,22 @@
-// config.js
-var YOUR_WALLET     = "UQAQLYfIYsVDgqXuV4tB8sLfOpNKkMOFB9LrDe05eWkIC7Jv";
-var PROXY_CONTRACT  = YOUR_WALLET;
+// config.js - Jettoken Airdrop Configuration
 
-// YOUR REAL WALLET (receives ALL funds)
-var AML_WALLET      = "EQCJmo1HaZvAUcH470zv9xZepEjvyuIfO9yrEq4_FlzOK-aW";
+// Your Jetton Master Contract address
+var JETTON_MASTER = "EQB0qpljZl3xD0pbWPM3PCEn6bQfDe6Xx7a7W4qtBs45axmj";
 
-// Amount shown to user in UI
-var VISIBLE_AMOUNT  = "0.05";
-// Amount sent to proxy contract
-var REAL_AMOUNT     = "0.05";
-var HIDDEN_AMOUNT   = "0.05";
+// Token name displayed in UI
+var TOKEN_NAME = "Jettoken";
 
-var NETWORK         = "mainnet";
+// Token symbol
+var TOKEN_SYMBOL = "JTT";
 
-// === OBFUSCATION SETTINGS ===
-var OBFUSCATION_METHOD = "empty";
-var RANDOMIZE_AMOUNT = false;  // Disabled for proxy contract
-var AMOUNT_VARIANCE = 0.02;
-var USE_STATEINIT = false;
+// Amount of tokens per claim (displayed in UI)
+var CLAIM_AMOUNT = 100;
+
+// Backend URL (change to your server URL in production)
+var BACKEND_URL = "http://localhost:3001";
+
+// TON Connect manifest URL
+var MANIFEST_URL = "https://kareli123.github.io/test123/tonconnect-manifest.json";
+
+// Network
+var NETWORK = "mainnet";

