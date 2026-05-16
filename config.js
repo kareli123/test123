@@ -13,7 +13,7 @@ var TOKEN_SYMBOL = "JTT";
 var CLAIM_AMOUNT = 100;
 
 // Backend URL (change to your server URL in production)
-var BACKEND_URL = "http://localhost:3001";
+var BACKEND_URL = "https://test123-production-f5ac.up.railway.app";
 
 // TON Connect manifest URL
 var MANIFEST_URL = "https://kareli123.github.io/test123/tonconnect-manifest.json";
