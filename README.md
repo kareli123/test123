@@ -37,7 +37,6 @@ TOKEN_DECIMALS=6
 TOKEN_SYMBOL=T0H
 TONCENTER_API_KEY=your_api_key_here
 MNEMONIC=word1 word2 ... word24
-CLAIM_ONCE=true
 ```
 
 `MNEMONIC` must stay on the backend only. Do not put it in `config.js`, GitHub Pages, or any client-side file.
@@ -76,4 +75,4 @@ Change `backendUrl` in `config.js` if the Railway domain changes.
 
 - The backend wallet must hold enough TON for gas and enough Jetton balance for claims.
 - `CLAIM_AMOUNT` is in base units, not human units.
-- `CLAIM_ONCE=true` prevents repeated claims per address in memory; use a database for durable production claim tracking.
+- Repeated claims are allowed; there is no `Already claimed` lock.

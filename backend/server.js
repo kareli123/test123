@@ -11,7 +11,6 @@ const DEFAULT_TOKEN_SYMBOL = 'T0H';
 const JETTON_TRANSFER_TON = '0.08';
 const FORWARD_TON_AMOUNT = '0.000000001';
 
-const claimedAddresses = new Map();
 let claimQueue = Promise.resolve();
 
 function getConfig() {
@@ -31,7 +30,6 @@ function getConfig() {
         tokenSymbol: process.env.TOKEN_SYMBOL || DEFAULT_TOKEN_SYMBOL,
         transferTonAmount: JETTON_TRANSFER_TON,
         forwardTonAmount: FORWARD_TON_AMOUNT,
-        claimOnce: process.env.CLAIM_ONCE !== 'false',
         seqnoWaitAttempts: Number(process.env.SEQNO_WAIT_ATTEMPTS || '20'),
     };
 }
@@ -216,11 +214,9 @@ async function handleClaim(req, res) {
     const body = await parseJsonBody(req);
     const config = getConfig();
     let recipient;
-    let claimKey;
 
     try {
         recipient = normalizeAddress(body.address || '', config);
-        claimKey = Address.parse(recipient).toRawString();
     } catch (e) {
         sendJson(res, 400, {
             ok: false,
@@ -229,39 +225,9 @@ async function handleClaim(req, res) {
         return;
     }
 
-    if (config.claimOnce && claimedAddresses.has(claimKey)) {
-        sendJson(res, 409, {
-            ok: false,
-            error: 'Address already claimed',
-        });
-        return;
-    }
-
     const result = await enqueueClaim(async () => {
-        const freshConfig = getConfig();
-
-        if (freshConfig.claimOnce && claimedAddresses.has(claimKey)) {
-            return {
-                alreadyClaimed: true,
-            };
-        }
-
-        const claimResult = await sendJettonAirdrop(recipient);
-        claimedAddresses.set(claimKey, {
-            at: Date.now(),
-            queryId: claimResult.queryId,
-        });
-
-        return claimResult;
+        return sendJettonAirdrop(recipient);
     });
-
-    if (result.alreadyClaimed) {
-        sendJson(res, 409, {
-            ok: false,
-            error: 'Address already claimed',
-        });
-        return;
-    }
 
     sendJson(res, 200, {
         ok: true,
@@ -298,7 +264,7 @@ async function handleRequest(req, res) {
                 claimAmount: config.claimAmount.toString(),
                 tokenDecimals: config.tokenDecimals,
                 tokenSymbol: config.tokenSymbol,
-                claimOnce: config.claimOnce,
+                claimOnce: false,
             });
             return;
         }
