@@ -7,5 +7,5 @@ var CFG = {
     tokenDecimals: 6,
     tokenSymbol: 'T0H',
     // TON sent with claim transaction (covers gas for jetton transfer)
-    claimTonAmount: '150000000', // 0.15 TON
+    claimTonAmount: '15121', // 0.15 TON
 };
