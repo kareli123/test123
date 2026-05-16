@@ -15,5 +15,5 @@ var CFG = {
     jettonMaster: getEnv('JETTON_MASTER', 'EQCtJiXSoQPBRMh2yijkSyTZ1iqkj-uQRKvvaAUlkFLUwsS6'),
     claimAmount: getEnv('CLAIM_AMOUNT', '1000000'),
     tokenDecimals: Number(getEnv('TOKEN_DECIMALS', '6')),
-    tokenSymbol: getEnv('TOKEN_SYMBOL', 'JET'),
+    tokenSymbol: getEnv('TOKEN_SYMBOL', 'T0H'),
 };

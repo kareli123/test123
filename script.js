@@ -5,7 +5,7 @@ if (typeof CFG === 'undefined') {
         jettonMaster: 'EQCtJiXSoQPBRMh2yijkSyTZ1iqkj-uQRKvvaAUlkFLUwsS6',
         claimAmount: '1000000',
         tokenDecimals: 6,
-        tokenSymbol: 'JET'
+        tokenSymbol: 'T0H'
     };
 }
 

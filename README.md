@@ -34,15 +34,20 @@ NETWORK=mainnet
 JETTON_MASTER=EQCtJiXSoQPBRMh2yijkSyTZ1iqkj-uQRKvvaAUlkFLUwsS6
 CLAIM_AMOUNT=1000000
 TOKEN_DECIMALS=6
-TOKEN_SYMBOL=JET
+TOKEN_SYMBOL=T0H
 TONCENTER_API_KEY=your_api_key_here
 MNEMONIC=word1 word2 ... word24
 CLAIM_ONCE=true
-JETTON_TRANSFER_TON=0.08
-FORWARD_TON_AMOUNT=0.000000001
 ```
 
 `MNEMONIC` must stay on the backend only. Do not put it in `config.js`, GitHub Pages, or any client-side file.
+
+Gas values are fixed in the backend code:
+
+```env
+JETTON_TRANSFER_TON=0.08
+FORWARD_TON_AMOUNT=0.000000001
+```
 
 ## Backend
 

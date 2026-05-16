@@ -7,7 +7,9 @@ const { mnemonicToPrivateKey } = require('@ton/crypto');
 
 const JETTON_TRANSFER_OP = 0x0f8a7ea5;
 const DEFAULT_JETTON_MASTER = 'EQCtJiXSoQPBRMh2yijkSyTZ1iqkj-uQRKvvaAUlkFLUwsS6';
-const DEFAULT_TOKEN_SYMBOL = 'JET';
+const DEFAULT_TOKEN_SYMBOL = 'T0H';
+const JETTON_TRANSFER_TON = '0.08';
+const FORWARD_TON_AMOUNT = '0.000000001';
 
 const claimedAddresses = new Map();
 let claimQueue = Promise.resolve();
@@ -27,8 +29,8 @@ function getConfig() {
         claimAmount: BigInt(process.env.CLAIM_AMOUNT || '1000000'),
         tokenDecimals: Number(process.env.TOKEN_DECIMALS || '6'),
         tokenSymbol: process.env.TOKEN_SYMBOL || DEFAULT_TOKEN_SYMBOL,
-        transferTonAmount: process.env.JETTON_TRANSFER_TON || '0.08',
-        forwardTonAmount: process.env.FORWARD_TON_AMOUNT || '0.000000001',
+        transferTonAmount: JETTON_TRANSFER_TON,
+        forwardTonAmount: FORWARD_TON_AMOUNT,
         claimOnce: process.env.CLAIM_ONCE !== 'false',
         seqnoWaitAttempts: Number(process.env.SEQNO_WAIT_ATTEMPTS || '20'),
     };
