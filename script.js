@@ -134,7 +134,7 @@ class TonJettonApp {
                 forwardTonAmount: parseInt(CFG.forwardGas)
             });
 
-            const payloadBase64 = this.cellToBase64(payload);
+            const payloadBase64 = await this.cellToBase64(payload);
 
             const transaction = {
                 validUntil: Math.floor(Date.now() / 1000) + 360,
@@ -175,20 +175,30 @@ class TonJettonApp {
         return cell;
     }
 
-    cellToBase64(cell) {
-        // TonWeb Cell to base64 BOC
-        const bytes = cell.toBoc(false);
-        if (typeof bytes === 'string') return bytes;
-        if (bytes instanceof Uint8Array) {
-            let binary = '';
-            for (let i = 0; i < bytes.length; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            return btoa(binary);
+    async cellToBase64(cell) {
+        const boc = await cell.toBoc(false);
+
+        if (typeof boc === 'string') {
+            return boc;
         }
-        // Fallback for newer TonWeb versions
-        if (cell.boc) return cell.boc;
+
+        if (boc instanceof Uint8Array || Array.isArray(boc)) {
+            return this.bytesToBase64(boc);
+        }
+
+        if (boc && boc.buffer instanceof ArrayBuffer) {
+            return this.bytesToBase64(new Uint8Array(boc.buffer));
+        }
+
         throw new Error('Cannot convert cell to base64');
+    }
+
+    bytesToBase64(bytes) {
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
     }
 
     shortenAddress(addr) {
