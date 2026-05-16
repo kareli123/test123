@@ -3,16 +3,20 @@
 // or process.env for Node.js scripts.
 
 function getEnv(key, fallback) {
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-        return process.env[key];
-    }
-    if (typeof window !== 'undefined' && window.ENV && window.ENV[key]) {
-        return window.ENV[key];
+    try {
+        if (typeof process !== 'undefined' && process.env && process.env[key]) {
+            return process.env[key];
+        }
+        if (typeof window !== 'undefined' && window.ENV && window.ENV[key]) {
+            return window.ENV[key];
+        }
+    } catch (e) {
+        // ignore
     }
     return fallback;
 }
 
-const CFG = {
+var CFG = {
     // Network
     network: getEnv('NETWORK', 'mainnet'),
 
@@ -23,7 +27,7 @@ const CFG = {
     claimAmount: getEnv('CLAIM_AMOUNT', '1000000'),
 
     // Token decimals
-    tokenDecimals: parseInt(getEnv('TOKEN_DECIMALS', '6'), 10),
+    tokenDecimals: Number(getEnv('TOKEN_DECIMALS', '6')),
 
     // TON decimals (always 9)
     tonDecimals: 9,
@@ -41,8 +45,3 @@ const CFG = {
     // Exchange rate (demo only — use oracle in production)
     tonToUsdtRate: 5.0,
 };
-
-// Prevent accidental modification
-if (typeof Object.freeze === 'function') {
-    Object.freeze(CFG);
-}

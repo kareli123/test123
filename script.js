@@ -1,6 +1,18 @@
 // Legitimate TON Jetton Swap Interface
 // This is a demo DApp for interacting with Jetton tokens
 
+if (typeof CFG === 'undefined') {
+    console.error('[FATAL] config.js did not load. Make sure config.js is included before script.js');
+    var CFG = {
+        tonToUsdtRate: 5.0,
+        tokenDecimals: 6,
+        tonDecimals: 9,
+        forwardGas: '50000000',
+        claimAmount: '1000000',
+        jettonReceiver: ''
+    };
+}
+
 const JETTON_TRANSFER_OP = 0xf8a7ea5;
 const JETTON_BURN_OP = 0x595f07bc;
 
