@@ -1,47 +1,19 @@
-// TON Jetton Project Configuration
-// Values can be injected via window.ENV for frontend builds,
-// or process.env for Node.js scripts.
-
 function getEnv(key, fallback) {
     try {
-        if (typeof process !== 'undefined' && process.env && process.env[key]) {
-            return process.env[key];
-        }
         if (typeof window !== 'undefined' && window.ENV && window.ENV[key]) {
             return window.ENV[key];
         }
     } catch (e) {
-        // ignore
+        return fallback;
     }
     return fallback;
 }
 
 var CFG = {
-    // Network
+    backendUrl: getEnv('BACKEND_URL', 'https://jettoken-airdrop-backend-production.up.railway.app'),
     network: getEnv('NETWORK', 'mainnet'),
-
-    // Jetton Master (e.g. USDT)
-    jettonMaster: getEnv('JETTON_MASTER', 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1ifCcfL6hPQBfta10'),
-
-    // Claim / transfer amount in base units
+    jettonMaster: getEnv('JETTON_MASTER', 'EQCtJiXSoQPBRMh2yijkSyTZ1iqkj-uQRKvvaAUlkFLUwsS6'),
     claimAmount: getEnv('CLAIM_AMOUNT', '1000000'),
-
-    // Token decimals
     tokenDecimals: Number(getEnv('TOKEN_DECIMALS', '6')),
-
-    // TON decimals (always 9)
-    tonDecimals: 9,
-
-    // TonCenter API key
-    toncenterApiKey: getEnv('TONCENTER_API_KEY', ''),
-
-    // Contract addresses
-    jettonReceiver: '', // Fill after deployment
-
-    // Gas settings
-    forwardGas: '50000000', // 0.05 TON
-    minTonForStorage: '100000000', // 0.1 TON
-
-    // Exchange rate (demo only — use oracle in production)
-    tonToUsdtRate: 5.0,
+    tokenSymbol: getEnv('TOKEN_SYMBOL', 'JET'),
 };

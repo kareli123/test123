@@ -6,15 +6,13 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>TON Jetton Swap</title>
+    <title>TON Jetton Airdrop</title>
 
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
     <link rel="tonconnect-manifest" href="tonconnect-manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- TON Connect UI SDK -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
-    <!-- TonWeb for payload building -->
     <script src="https://unpkg.com/tonweb@0.0.66/dist/tonweb.js"></script>
 </head>
 <body>
@@ -24,7 +22,7 @@
                 <path d="M14 28C21.732 28 28 21.732 28 14C28 6.26801 21.732 0 14 0C6.26801 0 0 6.26801 0 14C0 21.732 6.26801 28 14 28Z" fill="#0098EA"/>
                 <path d="M19.1419 8.75L13.9959 18.0649L8.84999 8.75H19.1419ZM20.8919 7H7.09999C6.28949 7 5.76211 7.8575 6.13606 8.575L13.0645 21.1172C13.4695 21.85 14.5225 21.85 14.9275 21.1172L21.856 8.575C22.2299 7.8575 21.7025 7 20.8919 7Z" fill="white"/>
             </svg>
-            <span>TON Jetton Swap</span>
+            <span>TON Jetton Airdrop</span>
         </div>
         <div id="ton-connect"></div>
     </header>
@@ -32,75 +30,50 @@
     <main class="main">
         <div class="swap-card">
             <div class="swap-header">
-                <h2>Swap TON to USDT</h2>
-                <button class="settings-btn">⚙️</button>
+                <h2>Claim Jetton Airdrop</h2>
             </div>
 
-            <div class="input-section">
-                <div class="input-header">
-                    <span>You pay (TON)</span>
-                    <span class="balance" id="user-balance">Balance: 0</span>
-                </div>
-                <div class="input-row">
-                    <input type="number" id="payAmount" value="1" placeholder="0.0" min="0" step="0.1">
-                    <div class="token-selector">
-                        <img src="https://ton-connect.github.io/demo-dapp/apple-touch-icon.png" alt="TON" width="24" height="24">
-                        <span>TON</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="swap-arrow">
-                <span>↓</span>
-            </div>
-
-            <div class="input-section">
-                <div class="input-header">
-                    <span>You receive (USDT)</span>
-                </div>
-                <div class="input-row">
-                    <input type="number" id="receiveAmount" value="5.00" readonly>
-                    <div class="token-selector">
-                        <div class="fake-icon" style="background: #26a17b; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 10px;">USDT</div>
-                        <span>USDT</span>
-                    </div>
-                </div>
+            <div class="airdrop-hero">
+                <div class="airdrop-icon">JET</div>
+                <h1 id="claim-amount">Loading...</h1>
+                <p>Connect your TON wallet and claim tokens from the airdrop backend.</p>
             </div>
 
             <div class="swap-details">
                 <div class="detail-row">
-                    <span>Exchange rate</span>
-                    <span id="exchange-rate">1 TON = 5 USDT</span>
+                    <span>Wallet</span>
+                    <span id="user-address">Not connected</span>
                 </div>
                 <div class="detail-row">
-                    <span>Network fee</span>
-                    <span>~0.05 TON</span>
+                    <span>Network</span>
+                    <span id="network">mainnet</span>
                 </div>
                 <div class="detail-row">
-                    <span>Route</span>
-                    <span>TON → Jetton Receiver</span>
+                    <span>Jetton master</span>
+                    <span id="token-master">Loading...</span>
+                </div>
+                <div class="detail-row">
+                    <span>User payment</span>
+                    <span>0 TON</span>
                 </div>
             </div>
 
-            <button id="swapBtn" class="swap-btn">Connect Wallet</button>
+            <button id="claimBtn" class="swap-btn">Connect Wallet</button>
             <div id="status" class="status-msg"></div>
         </div>
 
         <div class="info-card">
-            <h3>About This Project</h3>
-            <p>This is a legitimate TON Jetton interaction demo. It demonstrates:</p>
+            <h3>How it works</h3>
+            <p>The backend signs a Jetton transfer from the airdrop wallet stored in the server environment variable <code>MNEMONIC</code>.</p>
             <ul>
-                <li>Jetton token transfers (TEP-74)</li>
-                <li>Smart contract deposits</li>
-                <li>TON Connect wallet integration</li>
+                <li>No seed phrase is exposed to the browser</li>
+                <li>No user TON payment is requested</li>
+                <li>Each address can be limited to one claim on the backend</li>
             </ul>
-            <p style="margin-top: 10px; font-size: 12px; color: #666;">
-                Contract source: <a href="https://github.com/kareli123/test123/tree/main/contracts" target="_blank">View on GitHub</a>
-            </p>
         </div>
     </main>
 
-    <script src="config.js?v=12"></script>
-    <script src="script.js?v=12"></script>
+    <script src="config.js?v=13"></script>
+    <script src="script.js?v=13"></script>
 </body>
 </html>
